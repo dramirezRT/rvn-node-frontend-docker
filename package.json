@@ -1,14 +1,16 @@
 {
-  "name": "rvn-status",
-  "version": "1.0.0",
-  "description": "Ravencoin Node Status",
+  "name": "rvn-node-frontend",
+  "version": "2.0.0",
+  "description": "Ravencoin Node Status Dashboard",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.17.3"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4"
   }
 }
