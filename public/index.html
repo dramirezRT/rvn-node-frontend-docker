@@ -85,6 +85,20 @@
     margin-bottom: 40px;
     letter-spacing: 1px;
     z-index: 2;
+    position: relative;
+    padding-bottom: 16px;
+  }
+
+  .time-since::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 1px;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, transparent 70%);
+    box-shadow: 0 0 12px rgba(255,255,255,0.1), 0 0 24px rgba(255,255,255,0.05);
   }
 
   .time-since .value { color: var(--rvn-amber); }
@@ -96,7 +110,7 @@
     max-width: 720px;
     width: 90%;
     background: rgba(56, 77, 157, 0.08);
-    border: 1px solid rgba(247, 147, 26, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     overflow: hidden;
     box-shadow:
@@ -121,8 +135,10 @@
     font-weight: 600;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: rgba(120, 140, 220, 0.6);
-    margin-bottom: 6px;
+    color: rgba(140, 160, 230, 0.8);
+    margin-bottom: 8px;
+    font-size: 10px;
+    text-shadow: 0 0 8px rgba(255,255,255,0.15);
   }
 
   .stat-value {
@@ -130,6 +146,7 @@
     font-size: 16px;
     font-weight: 500;
     color: var(--rvn-text);
+    text-shadow: 0 0 10px rgba(255,255,255,0.12);
   }
 
   .stat-value.hash {
@@ -139,7 +156,7 @@
     line-height: 1.5;
   }
 
-  .stat-value.accent { color: var(--rvn-orange); }
+  .stat-value.accent { color: var(--rvn-orange); text-shadow: 0 0 12px rgba(247,147,26,0.25); }
 
   /* ── Version bar with white-fade shadow ── */
   .version-bar {
