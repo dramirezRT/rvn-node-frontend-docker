@@ -12,12 +12,14 @@
     --rvn-orange-dim: rgba(247, 147, 26, 0.6);
     --rvn-orange-glow: rgba(247, 147, 26, 0.15);
     --rvn-orange-subtle: rgba(247, 147, 26, 0.08);
-    --rvn-dark: #0a0a0a;
-    --rvn-surface: #111111;
-    --rvn-surface-2: #1a1a1a;
+    --rvn-blue: #384d9d;
+    --rvn-blue-glow: rgba(56, 77, 157, 0.5);
+    --rvn-dark: #050505;
+    --rvn-surface: #0c0c0c;
+    --rvn-surface-2: #141414;
     --rvn-text: #e0e0e0;
     --rvn-text-dim: #666666;
-    --rvn-text-muted: #444444;
+    --rvn-text-muted: #333333;
     --panel-width: 480px;
   }
 
@@ -32,24 +34,24 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── Animated background particles ── */
-  #bg-canvas {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: 0;
+  #block-canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    z-index: 1;
     pointer-events: none;
   }
 
-  /* ── Main layout ── */
   .main-wrapper {
     position: relative;
     z-index: 1;
     height: 100vh;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
+    padding-bottom: 80px;
     transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -57,337 +59,330 @@
     transform: translateX(calc(var(--panel-width) / -2));
   }
 
-  /* ── Block height hero ── */
-  .block-height-section {
-    text-align: center;
-    margin-bottom: 64px;
-  }
-
   .block-label {
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 4px;
+    position: absolute;
+    top: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 5px;
     text-transform: uppercase;
     color: var(--rvn-orange);
-    margin-bottom: 16px;
-    opacity: 0.9;
+    opacity: 0.7;
+    z-index: 2;
   }
 
-  .block-height {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(72px, 12vw, 160px);
-    font-weight: 700;
-    color: #ffffff;
-    line-height: 1;
-    text-shadow:
-      0 0 40px var(--rvn-orange-glow),
-      0 0 80px rgba(247, 147, 26, 0.08);
-    animation: float 6s ease-in-out infinite;
-    position: relative;
-  }
-
-  .block-height .digit {
-    display: inline-block;
-    transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-    position: relative;
-  }
-
-  .block-height .digit.changing {
-    animation: digitFlip 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-    color: var(--rvn-orange);
-    text-shadow: 0 0 30px var(--rvn-orange-dim);
-  }
-
-  .block-height .comma {
-    color: var(--rvn-text-muted);
-    font-weight: 400;
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
-  }
-
-  @keyframes digitFlip {
-    0% { transform: translateY(0); opacity: 1; }
-    30% { transform: translateY(-20px); opacity: 0; }
-    31% { transform: translateY(20px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
-  }
-
-  /* ── Time since block ── */
   .time-since {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 16px;
-    color: var(--rvn-text-dim);
-    margin-top: 20px;
+    font-size: 14px;
+    color: var(--rvn-text-muted);
+    margin-bottom: 40px;
     letter-spacing: 1px;
+    z-index: 2;
   }
 
-  .time-since .value {
-    color: var(--rvn-orange-dim);
-  }
+  .time-since .value { color: var(--rvn-orange-dim); }
 
-  /* ── Stats grid ── */
   .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 1px;
-    max-width: 800px;
+    max-width: 720px;
     width: 90%;
-    background: rgba(247, 147, 26, 0.06);
-    border: 1px solid rgba(247, 147, 26, 0.08);
+    background: rgba(247, 147, 26, 0.05);
+    border: 1px solid rgba(247, 147, 26, 0.07);
     border-radius: 12px;
     overflow: hidden;
     box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.4),
-      0 0 48px var(--rvn-orange-subtle),
-      inset 0 1px 0 rgba(247, 147, 26, 0.06);
+      0 4px 24px rgba(0, 0, 0, 0.5),
+      0 0 48px var(--rvn-orange-subtle);
+    z-index: 2;
   }
 
   .stat-card {
     background: var(--rvn-surface);
-    padding: 24px;
+    padding: 20px 16px;
     text-align: center;
     transition: background 0.3s ease;
   }
 
-  .stat-card:hover {
-    background: var(--rvn-surface-2);
-  }
+  .stat-card:hover { background: var(--rvn-surface-2); }
 
   .stat-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     letter-spacing: 3px;
     text-transform: uppercase;
     color: var(--rvn-text-muted);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .stat-value {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 500;
     color: var(--rvn-text);
   }
 
   .stat-value.hash {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--rvn-text-dim);
     word-break: break-all;
     line-height: 1.5;
   }
 
-  .stat-value.accent {
-    color: var(--rvn-orange);
-  }
+  .stat-value.accent { color: var(--rvn-orange); }
 
-  /* ── Version bar at bottom ── */
+  /* ── Version bar with white-fade shadow ── */
   .version-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 16px 32px;
+    padding: 14px 32px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 11px;
+    font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
     color: var(--rvn-text-muted);
     letter-spacing: 1px;
-    z-index: 2;
+    z-index: 10;
+    background: linear-gradient(to top, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.6) 60%, transparent 100%);
+    box-shadow: 0 -4px 30px rgba(255,255,255,0.03), 0 -1px 60px rgba(56,77,157,0.06);
   }
 
-  .version-bar .dot {
+  .status-indicator {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+  }
+
+  /* Status dot: orange core + blue contour ring */
+  .status-dot {
     display: inline-block;
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
+    margin-right: 10px;
+    transition: all 0.5s ease;
+  }
+
+  .status-dot.connected {
     background: var(--rvn-orange);
-    margin-right: 8px;
-    box-shadow: 0 0 8px var(--rvn-orange-dim);
-    animation: pulse 2s ease-in-out infinite;
+    border: 1.5px solid var(--rvn-blue);
+    box-shadow:
+      0 0 4px var(--rvn-orange-dim),
+      0 0 10px var(--rvn-blue-glow),
+      0 0 20px rgba(255,255,255,0.08);
+    animation: dotPulseOk 2s ease-in-out infinite;
   }
 
-  @keyframes pulse {
+  .status-dot.disconnected {
+    background: #e53935;
+    border: 1.5px solid #7a1a1a;
+    box-shadow: 0 0 6px rgba(229, 57, 53, 0.6), 0 0 16px rgba(229, 57, 53, 0.2);
+    animation: dotPulseFail 1.2s ease-in-out infinite;
+  }
+
+  @keyframes dotPulseOk {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 4px var(--rvn-orange-dim), 0 0 10px var(--rvn-blue-glow), 0 0 20px rgba(255,255,255,0.08);
+    }
+    50% {
+      opacity: 0.6;
+      box-shadow: 0 0 2px var(--rvn-orange-dim), 0 0 6px var(--rvn-blue-glow), 0 0 12px rgba(255,255,255,0.04);
+    }
+  }
+
+  @keyframes dotPulseFail {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    50% { opacity: 0.3; }
   }
 
-  /* ── Panel toggle button ── */
+  .status-tooltip {
+    position: absolute;
+    bottom: 28px;
+    left: 0;
+    background: var(--rvn-surface-2);
+    border: 1px solid rgba(247, 147, 26, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 10px;
+    line-height: 1.8;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: all 0.25s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 20px rgba(255,255,255,0.03);
+    z-index: 100;
+  }
+
+  .status-indicator:hover .status-tooltip {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .legend-row { display: flex; align-items: center; gap: 8px; }
+
+  .legend-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .legend-dot.ok {
+    background: var(--rvn-orange);
+    border: 1px solid var(--rvn-blue);
+    box-shadow: 0 0 4px var(--rvn-orange-dim), 0 0 6px var(--rvn-blue-glow);
+  }
+
+  .legend-dot.fail {
+    background: #e53935;
+    box-shadow: 0 0 4px rgba(229, 57, 53, 0.5);
+  }
+
+  .legend-label { color: var(--rvn-text-dim); }
+  .legend-label.active-label { color: var(--rvn-text); }
+
+  /* ── Panel toggle ── */
   .panel-toggle {
     position: fixed;
     top: 50%;
     right: 0;
     transform: translateY(-50%);
     z-index: 100;
-    width: 32px;
-    height: 80px;
+    width: 28px;
+    height: 72px;
     background: var(--rvn-surface);
-    border: 1px solid rgba(247, 147, 26, 0.1);
+    border: 1px solid rgba(247, 147, 26, 0.08);
     border-right: none;
-    border-radius: 8px 0 0 8px;
+    border-radius: 6px 0 0 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.4);
   }
 
-  .panel-toggle:hover {
-    background: var(--rvn-surface-2);
-    width: 36px;
-    box-shadow: -4px 0 24px rgba(247, 147, 26, 0.1);
-  }
+  .panel-toggle:hover { background: var(--rvn-surface-2); width: 32px; }
 
   .panel-toggle svg {
-    width: 14px;
-    height: 14px;
+    width: 12px; height: 12px;
     fill: var(--rvn-orange-dim);
     transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .panel-toggle.open svg {
-    transform: rotate(180deg);
-  }
+  .panel-toggle.open svg { transform: rotate(180deg); }
 
   /* ── Side panel ── */
   .side-panel {
     position: fixed;
-    top: 0;
-    right: 0;
+    top: 0; right: 0;
     width: var(--panel-width);
     height: 100vh;
     background: var(--rvn-surface);
-    border-left: 1px solid rgba(247, 147, 26, 0.08);
+    border-left: 1px solid rgba(247, 147, 26, 0.06);
     z-index: 50;
     transform: translateX(100%);
     transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     display: flex;
     flex-direction: column;
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.6);
   }
 
-  .side-panel.open {
-    transform: translateX(0);
-  }
+  .side-panel.open { transform: translateX(0); }
 
-  .panel-tabs {
+  .panel-header {
     display: flex;
-    border-bottom: 1px solid rgba(247, 147, 26, 0.08);
+    align-items: center;
+    border-bottom: 1px solid rgba(247, 147, 26, 0.06);
     flex-shrink: 0;
+    position: relative;
   }
+
+  .panel-tabs { display: flex; flex: 1; }
 
   .panel-tab {
-    flex: 1;
-    padding: 16px;
-    text-align: center;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--rvn-text-muted);
+    flex: 1; padding: 14px; text-align: center;
+    font-size: 10px; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--rvn-text-muted);
+    cursor: pointer; border: none; border-bottom: 2px solid transparent;
+    transition: all 0.3s ease; background: none; font-family: inherit;
+  }
+
+  .panel-tab:hover { color: var(--rvn-text-dim); }
+  .panel-tab.active { color: var(--rvn-orange); border-bottom-color: var(--rvn-orange); }
+
+  /* Floating close button */
+  .panel-close-float {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.3s ease;
-    background: none;
-    border-top: none;
-    border-left: none;
-    border-right: none;
-    font-family: inherit;
-  }
-
-  .panel-tab:hover {
-    color: var(--rvn-text-dim);
-  }
-
-  .panel-tab.active {
+    background: var(--rvn-surface-2);
+    border: 1px solid rgba(247, 147, 26, 0.15);
     color: var(--rvn-orange);
-    border-bottom-color: var(--rvn-orange);
+    font-size: 16px;
+    font-weight: 300;
+    transition: all 0.3s ease;
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.4),
+      0 0 12px rgba(247, 147, 26, 0.08),
+      0 0 20px rgba(255,255,255,0.03);
+    z-index: 60;
+    line-height: 1;
+  }
+
+  .panel-close-float:hover {
+    background: var(--rvn-orange);
+    color: #000;
+    border-color: var(--rvn-orange);
+    box-shadow:
+      0 2px 12px rgba(0,0,0,0.5),
+      0 0 16px var(--rvn-orange-dim),
+      0 0 30px rgba(255,255,255,0.06);
+    transform: scale(1.1);
   }
 
   .panel-log {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
+    flex: 1; overflow-y: auto; padding: 16px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    line-height: 1.7;
+    font-size: 10px; line-height: 1.7;
     color: var(--rvn-text-dim);
-    white-space: pre-wrap;
-    word-break: break-all;
+    white-space: pre-wrap; word-break: break-all;
     display: none;
   }
 
-  .panel-log.active {
-    display: block;
-  }
+  .panel-log.active { display: block; }
+  .panel-log::-webkit-scrollbar { width: 3px; }
+  .panel-log::-webkit-scrollbar-track { background: transparent; }
+  .panel-log::-webkit-scrollbar-thumb { background: rgba(247, 147, 26, 0.15); border-radius: 2px; }
 
-  .panel-log::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .panel-log::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .panel-log::-webkit-scrollbar-thumb {
-    background: rgba(247, 147, 26, 0.2);
-    border-radius: 2px;
-  }
-
-  /* ── Loading state ── */
-  .loading {
-    text-align: center;
-  }
-
-  .loading-text {
-    font-size: 14px;
-    color: var(--rvn-text-muted);
-    letter-spacing: 2px;
-    animation: pulse 2s ease-in-out infinite;
-  }
-
-  /* ── Responsive ── */
   @media (max-width: 768px) {
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-      width: 95%;
-    }
-
-    .side-panel {
-      width: 100%;
-      --panel-width: 100%;
-    }
-
-    .main-wrapper.panel-open {
-      transform: translateX(0);
-      opacity: 0.3;
-      pointer-events: none;
-    }
-
-    .stat-card { padding: 16px; }
-    .stat-value { font-size: 15px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); width: 95%; }
+    .side-panel { width: 100%; }
+    .main-wrapper.panel-open { transform: translateX(0); opacity: 0.3; pointer-events: none; }
   }
 </style>
 </head>
 <body>
 
-<!-- Background particle canvas -->
-<canvas id="bg-canvas"></canvas>
+<div class="block-label">Block Height</div>
+<canvas id="block-canvas"></canvas>
 
-<!-- Main content -->
 <div class="main-wrapper" id="main">
-  <div class="block-height-section">
-    <div class="block-label">Block Height</div>
-    <div class="block-height" id="blockHeight">
-      <span class="loading-text">Connecting</span>
-    </div>
-    <div class="time-since" id="timeSince"></div>
-  </div>
+  <div class="time-since" id="timeSince"></div>
 
   <div class="stats-grid" id="statsGrid" style="display:none;">
     <div class="stat-card">
@@ -406,29 +401,42 @@
       <div class="stat-label">Endpoint</div>
       <div class="stat-value" id="statAddress">--</div>
     </div>
-    <div class="stat-card" style="grid-column: 1 / -1;">
+    <div class="stat-card" style="grid-column: 2 / 4;">
       <div class="stat-label">Block Hash</div>
       <div class="stat-value hash" id="statHash">--</div>
     </div>
   </div>
 </div>
 
-<!-- Version bar -->
 <div class="version-bar">
-  <div><span class="dot"></span><span id="versionLabel">Ravencoin Node</span></div>
+  <div class="status-indicator" id="statusIndicator">
+    <span class="status-dot connected" id="statusDot"></span>
+    <span id="versionLabel">Ravencoin Node</span>
+    <div class="status-tooltip">
+      <div class="legend-row">
+        <span class="legend-dot ok"></span>
+        <span class="legend-label" id="legendOk">Connected -- receiving blocks</span>
+      </div>
+      <div class="legend-row" style="margin-top:4px;">
+        <span class="legend-dot fail"></span>
+        <span class="legend-label" id="legendFail">Disconnected -- node unreachable</span>
+      </div>
+    </div>
+  </div>
   <div id="lastUpdate"></div>
 </div>
 
-<!-- Side panel toggle -->
 <button class="panel-toggle" id="panelToggle" aria-label="Toggle log panel">
   <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
 </button>
 
-<!-- Side panel -->
 <div class="side-panel" id="sidePanel">
-  <div class="panel-tabs">
-    <button class="panel-tab active" data-tab="core">Raven Core</button>
-    <button class="panel-tab" data-tab="electrumx">ElectrumX</button>
+  <div class="panel-header">
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-tab="core">Raven Core</button>
+      <button class="panel-tab" data-tab="electrumx">ElectrumX</button>
+    </div>
+    <button class="panel-close-float" id="panelClose" aria-label="Close panel">&times;</button>
   </div>
   <div class="panel-log active" id="log-core"></div>
   <div class="panel-log" id="log-electrumx"></div>
@@ -439,96 +447,309 @@
 (function() {
   'use strict';
 
-  // ── Elements ──
-  const blockHeightEl = document.getElementById('blockHeight');
   const timeSinceEl = document.getElementById('timeSince');
   const statsGrid = document.getElementById('statsGrid');
   const panelToggle = document.getElementById('panelToggle');
   const sidePanel = document.getElementById('sidePanel');
   const mainWrapper = document.getElementById('main');
+  const panelClose = document.getElementById('panelClose');
+  const statusDot = document.getElementById('statusDot');
+  const legendOk = document.getElementById('legendOk');
+  const legendFail = document.getElementById('legendFail');
 
   let currentHeight = null;
   let panelOpen = false;
   let subscribedCore = false;
   let subscribedElectrumx = false;
+  let lastDataTime = 0;
 
-  // ── Socket ──
-  const socket = io();
-
-  socket.on('node_status', (data) => {
-    if (data.blockHeight) {
-      updateBlockHeight(data.blockHeight);
-    }
-    if (data.timeSinceBlock) {
-      timeSinceEl.innerHTML = 'Last block <span class="value">' + escapeHtml(data.timeSinceBlock) + '</span> ago';
-    }
-    if (data.peers !== undefined) {
-      statsGrid.style.display = '';
-      document.getElementById('statPeers').textContent = data.peers;
-    }
-    if (data.score !== undefined) {
-      document.getElementById('statScore').textContent = data.score;
-    }
-    if (data.version) {
-      // Parse "Ravencoin:4.6.1(addr)" into clean display
-      const v = data.version;
-      const match = v.match(/^([^(]+)\(([^)]+)\)/);
-      if (match) {
-        document.getElementById('statVersion').textContent = match[1].trim();
-        document.getElementById('statAddress').textContent = truncateAddr(match[2]);
-        document.getElementById('statAddress').title = match[2];
-      } else {
-        document.getElementById('statVersion').textContent = v;
-      }
-      document.getElementById('versionLabel').textContent = data.version.split('(')[0].trim();
-    }
-    if (data.blockHash) {
-      document.getElementById('statHash').textContent = data.blockHash;
-    }
-    if (data.ipPort) {
-      const parts = data.ipPort.split('/');
-      if (parts.length === 2) {
-        document.getElementById('statAddress').textContent = parts[0] + ':' + parts[1];
-        document.getElementById('statAddress').title = data.ipPort;
-      }
-    }
-    if (data.updatedAt) {
-      document.getElementById('lastUpdate').textContent = new Date(data.updatedAt).toLocaleTimeString();
-    }
-  });
-
-  // ── Block height with digit animation ──
-  function updateBlockHeight(newHeight) {
-    const formatted = formatNumber(newHeight);
-    const oldFormatted = currentHeight ? formatNumber(currentHeight) : '';
-
-    let html = '';
-    for (let i = 0; i < formatted.length; i++) {
-      const ch = formatted[i];
-      if (ch === ',') {
-        html += '<span class="comma">,</span>';
-      } else {
-        const changed = oldFormatted[i] !== ch;
-        html += '<span class="digit' + (changed && currentHeight ? ' changing' : '') + '">' + ch + '</span>';
-      }
-    }
-
-    blockHeightEl.innerHTML = html;
-    currentHeight = newHeight;
-
-    // Remove animation class after it plays
-    setTimeout(() => {
-      document.querySelectorAll('.digit.changing').forEach(el => el.classList.remove('changing'));
-    }, 700);
+  function setConnected(ok) {
+    statusDot.className = 'status-dot ' + (ok ? 'connected' : 'disconnected');
+    legendOk.className = 'legend-label' + (ok ? ' active-label' : '');
+    legendFail.className = 'legend-label' + (!ok ? ' active-label' : '');
   }
 
+  setInterval(() => {
+    if (lastDataTime && Date.now() - lastDataTime > 30000) setConnected(false);
+  }, 15000);
+
+  // ═══════════════════════════════════════════
+  // PARTICLE TEXT ENGINE — white shadow, no blue contour
+  // ═══════════════════════════════════════════
+
+  const canvas = document.getElementById('block-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const SYMBOLS = '#@%&*+~?$!=<>^:;.'.split('');
+  const ORANGE = { r: 247, g: 147, b: 26 };
+  const WHITE = { r: 255, g: 255, b: 255 };
+
+  let particles = [];
+  let canvasW, canvasH;
+  let floatPhase = 0;
+
+  function initCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvasW = Math.min(window.innerWidth * 0.85, 1200);
+    canvasH = Math.min(window.innerHeight * 0.45, 350);
+    canvas.width = canvasW * dpr;
+    canvas.height = canvasH * dpr;
+    canvas.style.width = canvasW + 'px';
+    canvas.style.height = canvasH + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  window.addEventListener('resize', () => {
+    initCanvas();
+    if (currentHeight) renderText(formatNumber(currentHeight), false);
+  });
+  initCanvas();
+
+  function getTextPixels(text) {
+    const off = document.createElement('canvas');
+    const octx = off.getContext('2d');
+    off.width = canvasW;
+    off.height = canvasH;
+
+    let fontSize = Math.min(canvasH * 0.75, canvasW / (text.length * 0.62));
+    fontSize = Math.max(40, Math.min(fontSize, 200));
+
+    octx.fillStyle = '#fff';
+    octx.font = 'bold ' + fontSize + 'px "JetBrains Mono", monospace';
+    octx.textAlign = 'center';
+    octx.textBaseline = 'middle';
+    octx.fillText(text, canvasW / 2, canvasH / 2);
+
+    const imageData = octx.getImageData(0, 0, canvasW, canvasH);
+    const pixels = imageData.data;
+    const points = [];
+    const gap = 7;
+
+    for (let y = 0; y < canvasH; y += gap) {
+      for (let x = 0; x < canvasW; x += gap) {
+        const i = (y * canvasW + x) * 4;
+        if (pixels[i] > 128) {
+          points.push({ x, y });
+        }
+      }
+    }
+    return points;
+  }
+
+  class Particle {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.targetX = x;
+      this.targetY = y;
+      this.vx = 0;
+      this.vy = 0;
+      this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+      this.symbolTimer = Math.random() * 200;
+      this.baseOpacity = 0.5 + Math.random() * 0.5;
+      this.opacity = this.baseOpacity;
+      this.isOrange = Math.random() < 0.25;
+      this.floatOffset = Math.random() * Math.PI * 2;
+      this.floatAmp = 0.4 + Math.random() * 1.0;
+      this.size = 8 + Math.random() * 3;
+    }
+
+    update(dt) {
+      const floatY = Math.sin(floatPhase + this.floatOffset) * this.floatAmp;
+      const floatX = Math.cos(floatPhase * 0.7 + this.floatOffset) * this.floatAmp * 0.5;
+
+      const tx = this.targetX + floatX;
+      const ty = this.targetY + floatY;
+
+      const dx = tx - this.x;
+      const dy = ty - this.y;
+      this.vx += dx * 0.08;
+      this.vy += dy * 0.08;
+      this.vx *= 0.85;
+      this.vy *= 0.85;
+      this.x += this.vx;
+      this.y += this.vy;
+
+      this.symbolTimer -= dt;
+      if (this.symbolTimer <= 0) {
+        this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+        this.symbolTimer = 100 + Math.random() * 400;
+        this.opacity = this.baseOpacity * (0.75 + Math.random() * 0.25);
+      }
+    }
+
+    draw(ctx) {
+      const col = this.isOrange ? ORANGE : WHITE;
+
+      // White glow shadow on all particles
+      ctx.shadowColor = 'rgba(255, 255, 255, ' + (this.opacity * 0.35) + ')';
+      ctx.shadowBlur = 6;
+
+      ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + this.opacity + ')';
+      ctx.font = this.size + 'px "JetBrains Mono", monospace';
+      ctx.fillText(this.symbol, this.x, this.y);
+    }
+  }
+
+  function renderText(text, animate) {
+    const points = getTextPixels(text);
+
+    if (animate && particles.length > 0) {
+      const newCount = points.length;
+      const oldCount = particles.length;
+
+      for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+        particles[i].targetX = points[i].x;
+        particles[i].targetY = points[i].y;
+        // Burst scatter
+        particles[i].vx += (Math.random() - 0.5) * 14;
+        particles[i].vy += (Math.random() - 0.5) * 14;
+        if (Math.random() < 0.5) {
+          particles[i].symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+          particles[i].isOrange = Math.random() < 0.4; // more orange during transition
+        }
+      }
+
+      for (let i = oldCount; i < newCount; i++) {
+        const p = new Particle(
+          canvasW / 2 + (Math.random() - 0.5) * canvasW,
+          canvasH / 2 + (Math.random() - 0.5) * canvasH
+        );
+        p.targetX = points[i].x;
+        p.targetY = points[i].y;
+        p.opacity = 0;
+        particles.push(p);
+      }
+
+      if (newCount < oldCount) {
+        for (let i = newCount; i < oldCount; i++) {
+          particles[i].targetX = particles[i].x + (Math.random() - 0.5) * 300;
+          particles[i].targetY = particles[i].y + (Math.random() - 0.5) * 300;
+          particles[i].baseOpacity = 0;
+        }
+        setTimeout(() => { particles.length = newCount; }, 800);
+      }
+    } else {
+      particles = points.map(p => new Particle(p.x, p.y));
+    }
+  }
+
+  let lastTime = performance.now();
+
+  function animateLoop() {
+    const now = performance.now();
+    const dt = now - lastTime;
+    lastTime = now;
+    floatPhase += dt * 0.001;
+
+    ctx.clearRect(0, 0, canvasW, canvasH);
+
+    for (const p of particles) {
+      p.update(dt);
+      p.draw(ctx);
+      if (p.opacity < p.baseOpacity) {
+        p.opacity = Math.min(p.opacity + dt * 0.003, p.baseOpacity);
+      }
+    }
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    requestAnimationFrame(animateLoop);
+  }
+
+  renderText('- - - - - -', false);
+  animateLoop();
+
+  // ═══════════════════════════════════════════
+  // MOCK: Always run mock to demo block changes
+  // (Real socket data overrides when available)
+  // ═══════════════════════════════════════════
+
+  let mockHeight = 4267123;
+  let realDataReceived = false;
+
+  function initMock() {
+    currentHeight = mockHeight;
+    renderText(formatNumber(mockHeight), false);
+    statsGrid.style.display = '';
+    document.getElementById('statPeers').textContent = '12';
+    document.getElementById('statScore').textContent = '3';
+    document.getElementById('statVersion').textContent = 'Ravencoin:4.6.1';
+    document.getElementById('statAddress').textContent = '92.74.178.143:8767';
+    document.getElementById('statHash').textContent = '000000000000acd40018a6e8c0bd9281680cab39d18d2a9546745382a850c6dd';
+    document.getElementById('versionLabel').textContent = 'Ravencoin:4.6.1';
+    timeSinceEl.innerHTML = 'Last block <span class="value">0:01:34</span> ago';
+    lastDataTime = Date.now();
+  }
+
+  function mockTick() {
+    mockHeight += 1;
+    currentHeight = mockHeight;
+    renderText(formatNumber(mockHeight), true);
+    lastDataTime = Date.now();
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    const h = Array.from({length: 64}, () => '0123456789abcdef'[Math.floor(Math.random()*16)]).join('');
+    document.getElementById('statHash').textContent = h;
+  }
+
+  // Always run mock ticks — real changing data will override via realDataReceived check
+  // The mock increments the number so you can see the particle transition
+  setTimeout(() => {
+    initMock();
+    setInterval(mockTick, 8000);
+  }, 1500);
+
+  // ═══════════════════════════════════════════
+  // SOCKET
+  // ═══════════════════════════════════════════
+
+  let socketConnected = false;
+  try {
+    var socket = io({ timeout: 5000, reconnectionAttempts: 3 });
+
+    socket.on('connect', () => { socketConnected = true; setConnected(true); });
+    socket.on('disconnect', () => { setConnected(false); });
+
+    socket.on('node_status', (data) => {
+      realDataReceived = true;
+      lastDataTime = Date.now();
+      setConnected(true);
+
+      if (data.blockHeight && data.blockHeight !== currentHeight) {
+        currentHeight = data.blockHeight;
+        mockHeight = data.blockHeight;
+        renderText(formatNumber(data.blockHeight), true);
+      }
+      if (data.timeSinceBlock) {
+        let t = data.timeSinceBlock.replace(/^0 days,\s*/, '');
+        timeSinceEl.innerHTML = 'Last block <span class="value">' + escapeHtml(t) + '</span> ago';
+      }
+      if (data.peers !== undefined) {
+        statsGrid.style.display = '';
+        document.getElementById('statPeers').textContent = data.peers;
+      }
+      if (data.score !== undefined) document.getElementById('statScore').textContent = data.score;
+      if (data.version) {
+        const match = data.version.match(/^([^(]+)\(([^)]+)\)/);
+        document.getElementById('statVersion').textContent = match ? match[1].trim() : data.version;
+        document.getElementById('versionLabel').textContent = data.version.split('(')[0].trim();
+      }
+      if (data.blockHash) document.getElementById('statHash').textContent = data.blockHash;
+      if (data.ipPort) {
+        const parts = data.ipPort.split('/');
+        document.getElementById('statAddress').textContent = parts.length === 2 ? parts[0] + ':' + parts[1] : data.ipPort;
+      }
+      if (data.updatedAt) document.getElementById('lastUpdate').textContent = new Date(data.updatedAt).toLocaleTimeString();
+    });
+
+    socket.on('log_core', (text) => appendLog('log-core', text));
+    socket.on('log_electrumx', (text) => appendLog('log-electrumx', text));
+  } catch(e) {}
+
+  // ── Helpers ──
   function formatNumber(n) {
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
-
-  function truncateAddr(addr) {
-    if (addr.length <= 16) return addr;
-    return addr.slice(0, 8) + '...' + addr.slice(-6);
   }
 
   function escapeHtml(s) {
@@ -538,19 +759,20 @@
   }
 
   // ── Panel ──
-  panelToggle.addEventListener('click', () => {
-    panelOpen = !panelOpen;
+  function togglePanel(open) {
+    panelOpen = typeof open === 'boolean' ? open : !panelOpen;
     sidePanel.classList.toggle('open', panelOpen);
     panelToggle.classList.toggle('open', panelOpen);
     mainWrapper.classList.toggle('panel-open', panelOpen);
-
-    if (panelOpen && !subscribedCore) {
+    if (panelOpen && !subscribedCore && socketConnected) {
       subscribedCore = true;
       socket.emit('subscribe_logs', 'core');
     }
-  });
+  }
 
-  // ── Panel tabs ──
+  panelToggle.addEventListener('click', () => togglePanel());
+  panelClose.addEventListener('click', () => togglePanel(false));
+
   document.querySelectorAll('.panel-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
@@ -558,104 +780,22 @@
       tab.classList.add('active');
       const target = tab.dataset.tab;
       document.getElementById('log-' + target).classList.add('active');
-
-      // Subscribe to logs on first tab open
-      if (target === 'electrumx' && !subscribedElectrumx) {
-        subscribedElectrumx = true;
-        socket.emit('subscribe_logs', 'electrumx');
+      if (target === 'electrumx' && !subscribedElectrumx && socketConnected) {
+        subscribedElectrumx = true; socket.emit('subscribe_logs', 'electrumx');
       }
-      if (target === 'core' && !subscribedCore) {
-        subscribedCore = true;
-        socket.emit('subscribe_logs', 'core');
+      if (target === 'core' && !subscribedCore && socketConnected) {
+        subscribedCore = true; socket.emit('subscribe_logs', 'core');
       }
     });
   });
-
-  // ── Streaming logs ──
-  socket.on('log_core', (text) => appendLog('log-core', text));
-  socket.on('log_electrumx', (text) => appendLog('log-electrumx', text));
 
   function appendLog(id, text) {
     const el = document.getElementById(id);
     const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
     el.textContent += text;
-    // Trim if too long
-    if (el.textContent.length > 200000) {
-      el.textContent = el.textContent.slice(-100000);
-    }
+    if (el.textContent.length > 200000) el.textContent = el.textContent.slice(-100000);
     if (wasAtBottom) el.scrollTop = el.scrollHeight;
   }
-
-  // ── Background particles ──
-  const canvas = document.getElementById('bg-canvas');
-  const ctx = canvas.getContext('2d');
-  let particles = [];
-  const PARTICLE_COUNT = 60;
-
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  class Particle {
-    constructor() { this.reset(); }
-    reset() {
-      this.x = Math.random() * canvas.width;
-      this.y = Math.random() * canvas.height;
-      this.vx = (Math.random() - 0.5) * 0.3;
-      this.vy = (Math.random() - 0.5) * 0.3;
-      this.size = Math.random() * 1.5 + 0.5;
-      this.opacity = Math.random() * 0.15 + 0.03;
-      this.isOrange = Math.random() < 0.3;
-    }
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-      if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
-    }
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fillStyle = this.isOrange
-        ? 'rgba(247, 147, 26, ' + this.opacity + ')'
-        : 'rgba(255, 255, 255, ' + this.opacity * 0.5 + ')';
-      ctx.fill();
-    }
-  }
-
-  for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
-
-  function drawConnections() {
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 150) {
-          const opacity = (1 - dist / 150) * 0.04;
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = (particles[i].isOrange || particles[j].isOrange)
-            ? 'rgba(247, 147, 26, ' + opacity + ')'
-            : 'rgba(255, 255, 255, ' + opacity * 0.5 + ')';
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
-    }
-  }
-
-  function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    particles.forEach(p => { p.update(); p.draw(); });
-    drawConnections();
-    requestAnimationFrame(animate);
-  }
-  animate();
 
 })();
 </script>
