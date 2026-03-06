@@ -575,7 +575,7 @@
       this.opacity = this.baseOpacity;
       this.isOrange = Math.random() < 0.25;
       this.floatOffset = Math.random() * Math.PI * 2;
-      this.floatAmp = 0.4 + Math.random() * 1.0;
+      this.floatAmp = 0.2 + Math.random() * 0.5;
       this.size = 8 + Math.random() * 3;
       // For atom animation
       this.imploding = false;
@@ -604,29 +604,28 @@
         // When close enough, switch to explode phase
         if (dist < 5) {
           this.implodePhase = 2;
-          // Burst outward from center
+          // Burst outward from center — moderate, not too far
           const angle = Math.random() * Math.PI * 2;
-          const force = 6 + Math.random() * 10;
+          const force = 3 + Math.random() * 5;
           this.vx = Math.cos(angle) * force;
           this.vy = Math.sin(angle) * force;
           this.isOrange = Math.random() < 0.5;
           this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
         }
       } else if (this.implodePhase === 2) {
-        // Phase 2: explode outward then settle to target
+        // Phase 2: explode outward then quickly settle to target
         const floatY = Math.sin(floatPhase + this.floatOffset) * this.floatAmp;
         const floatX = Math.cos(floatPhase * 0.7 + this.floatOffset) * this.floatAmp * 0.5;
         tx = this.targetX + floatX;
         ty = this.targetY + floatY;
         const dx = tx - this.x;
         const dy = ty - this.y;
-        this.vx += dx * 0.06;
-        this.vy += dy * 0.06;
-        this.vx *= 0.88;
-        this.vy *= 0.88;
+        this.vx += dx * 0.12;
+        this.vy += dy * 0.12;
+        this.vx *= 0.80;
+        this.vy *= 0.80;
         this.x += this.vx;
         this.y += this.vy;
-        // Settle back to normal
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 3) {
           this.implodePhase = 0;
@@ -640,10 +639,10 @@
         ty = this.targetY + floatY;
         const dx = tx - this.x;
         const dy = ty - this.y;
-        this.vx += dx * 0.08;
-        this.vy += dy * 0.08;
-        this.vx *= 0.85;
-        this.vy *= 0.85;
+        this.vx += dx * 0.12;
+        this.vy += dy * 0.12;
+        this.vx *= 0.80;
+        this.vy *= 0.80;
         this.x += this.vx;
         this.y += this.vy;
       }
@@ -667,39 +666,76 @@
   }
 
   let lastCharBounds = [];
+  let isFirstRender = true;
 
   function renderText(text, animate) {
     const layout = getTextLayout(text);
     const points = layout.points;
     const charBounds = layout.charBounds;
 
-    if (animate && particles.length > 0 && currentText.length === text.length) {
+    if (isFirstRender || !animate) {
+      // ── INITIAL LOAD: spawn from scattered positions, transition smoothly to form ──
+      isFirstRender = false;
+      particles = points.map(p => {
+        // Spawn from nearby scatter — close enough to settle in ~1.5s
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 20 + Math.random() * 60;
+        const spawnX = p.x + Math.cos(angle) * dist;
+        const spawnY = p.y + Math.sin(angle) * dist;
+        const particle = new Particle(spawnX, spawnY, p.charIdx);
+        particle.targetX = p.x;
+        particle.targetY = p.y;
+        // Initial velocity toward target for snappy convergence
+        particle.vx = (p.x - spawnX) * 0.1;
+        particle.vy = (p.y - spawnY) * 0.1;
+        particle.opacity = 0; // fade in
+        return particle;
+      });
+    } else {
+      // ── DIGIT UPDATE: only animate changed characters with atom implosion/explosion ──
       // Find which characters changed
       const changedChars = new Set();
-      for (let i = 0; i < text.length; i++) {
-        if (currentText[i] !== text[i]) changedChars.add(i);
+      const oldText = currentText;
+
+      if (oldText.length === text.length) {
+        for (let i = 0; i < text.length; i++) {
+          if (oldText[i] !== text[i]) changedChars.add(i);
+        }
+      } else {
+        // Different length: figure out which positions changed
+        // Align from the left — commas and leading digits shift, so compare right-aligned
+        // Simple approach: mark all chars as changed for length-changing updates
+        // but still use atom animation per-char (not scatter-all)
+        const maxLen = Math.max(oldText.length, text.length);
+        for (let i = 0; i < maxLen; i++) {
+          const oldIdx = oldText.length - maxLen + i;
+          const newIdx = text.length - maxLen + i;
+          const oldCh = oldIdx >= 0 ? oldText[oldIdx] : '';
+          const newCh = newIdx >= 0 ? text[newIdx] : '';
+          if (oldCh !== newCh && newIdx >= 0) changedChars.add(newIdx);
+        }
       }
 
       const newCount = points.length;
       const oldCount = particles.length;
 
-      // Update targets, only implode changed chars
+      // Update all particle targets; only trigger atom animation for changed chars
       for (let i = 0; i < Math.min(oldCount, newCount); i++) {
-        const oldCharIdx = particles[i].charIdx;
         particles[i].targetX = points[i].x;
         particles[i].targetY = points[i].y;
         particles[i].charIdx = points[i].charIdx;
 
         if (changedChars.has(points[i].charIdx)) {
-          // Atom implosion: set implode center to the char's center
+          // Atom implosion for this particle
           const cb = charBounds[points[i].charIdx];
           particles[i].implodeX = cb.centerX;
           particles[i].implodeY = cb.centerY;
           particles[i].implodePhase = 1;
         }
+        // Unchanged chars: just smoothly update target (spring physics handles it)
       }
 
-      // Handle particle count differences
+      // New particles needed (more points than before)
       for (let i = oldCount; i < newCount; i++) {
         const cb = charBounds[points[i].charIdx];
         const p = new Particle(cb.centerX, cb.centerY, points[i].charIdx);
@@ -714,37 +750,13 @@
         particles.push(p);
       }
 
+      // Excess particles (fewer points than before)
       if (newCount < oldCount) {
         for (let i = newCount; i < oldCount; i++) {
           particles[i].baseOpacity = 0;
         }
         setTimeout(() => { particles.length = newCount; }, 800);
       }
-    } else if (animate && particles.length > 0) {
-      // Full text length changed — scatter all
-      const newCount = points.length;
-      const oldCount = particles.length;
-      for (let i = 0; i < Math.min(oldCount, newCount); i++) {
-        particles[i].targetX = points[i].x;
-        particles[i].targetY = points[i].y;
-        particles[i].charIdx = points[i].charIdx;
-        particles[i].vx += (Math.random() - 0.5) * 14;
-        particles[i].vy += (Math.random() - 0.5) * 14;
-      }
-      for (let i = oldCount; i < newCount; i++) {
-        const p = new Particle(canvasW / 2 + (Math.random() - 0.5) * canvasW, canvasH / 2 + (Math.random() - 0.5) * canvasH, points[i].charIdx);
-        p.targetX = points[i].x;
-        p.targetY = points[i].y;
-        p.opacity = 0;
-        particles.push(p);
-      }
-      if (newCount < oldCount) {
-        for (let i = newCount; i < oldCount; i++) { particles[i].baseOpacity = 0; }
-        setTimeout(() => { particles.length = newCount; }, 800);
-      }
-    } else {
-      // First render — instant placement
-      particles = points.map(p => new Particle(p.x, p.y, p.charIdx));
     }
 
     currentText = text;
@@ -814,8 +826,9 @@
   // The mock increments the number so you can see the particle transition
   setTimeout(() => {
     initMock();
-    setInterval(mockTick, 8000);
-  }, 1500);
+    // First tick after 8s to let initial animation fully settle
+    setTimeout(() => setInterval(mockTick, 8000), 8000);
+  }, 500);
 
   // ═══════════════════════════════════════════
   // SOCKET
