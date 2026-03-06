@@ -474,7 +474,7 @@
   }, 15000);
 
   // ═══════════════════════════════════════════
-  // PARTICLE TEXT ENGINE — white shadow, no blue contour
+  // PARTICLE TEXT ENGINE — atom implosion/explosion per digit
   // ═══════════════════════════════════════════
 
   const canvas = document.getElementById('block-canvas');
@@ -487,6 +487,8 @@
   let particles = [];
   let canvasW, canvasH;
   let floatPhase = 0;
+  let currentText = '';
+  let lastFontSize = 100;
 
   function initCanvas() {
     const dpr = window.devicePixelRatio || 1;
@@ -505,7 +507,8 @@
   });
   initCanvas();
 
-  function getTextPixels(text) {
+  // Get pixel positions AND character boundaries for per-char animation
+  function getTextLayout(text) {
     const off = document.createElement('canvas');
     const octx = off.getContext('2d');
     off.width = canvasW;
@@ -513,11 +516,26 @@
 
     let fontSize = Math.min(canvasH * 0.75, canvasW / (text.length * 0.62));
     fontSize = Math.max(40, Math.min(fontSize, 200));
+    lastFontSize = fontSize;
 
-    octx.fillStyle = '#fff';
-    octx.font = 'bold ' + fontSize + 'px "JetBrains Mono", monospace';
+    const font = 'bold ' + fontSize + 'px "JetBrains Mono", monospace';
+    octx.font = font;
     octx.textAlign = 'center';
     octx.textBaseline = 'middle';
+
+    // Measure each character's x-range
+    const totalWidth = octx.measureText(text).width;
+    const startX = canvasW / 2 - totalWidth / 2;
+    const charBounds = [];
+    let cx = startX;
+    for (let i = 0; i < text.length; i++) {
+      const w = octx.measureText(text[i]).width;
+      charBounds.push({ left: cx, right: cx + w, centerX: cx + w / 2, centerY: canvasH / 2, char: text[i], idx: i });
+      cx += w;
+    }
+
+    // Render full text and sample
+    octx.fillStyle = '#fff';
     octx.fillText(text, canvasW / 2, canvasH / 2);
 
     const imageData = octx.getImageData(0, 0, canvasW, canvasH);
@@ -529,21 +547,28 @@
       for (let x = 0; x < canvasW; x += gap) {
         const i = (y * canvasW + x) * 4;
         if (pixels[i] > 128) {
-          points.push({ x, y });
+          // Assign to a character
+          let charIdx = 0;
+          for (let c = 0; c < charBounds.length; c++) {
+            if (x >= charBounds[c].left && x < charBounds[c].right) { charIdx = c; break; }
+            if (c === charBounds.length - 1) charIdx = c;
+          }
+          points.push({ x, y, charIdx });
         }
       }
     }
-    return points;
+    return { points, charBounds };
   }
 
   class Particle {
-    constructor(x, y) {
+    constructor(x, y, charIdx) {
       this.x = x;
       this.y = y;
       this.targetX = x;
       this.targetY = y;
       this.vx = 0;
       this.vy = 0;
+      this.charIdx = charIdx;
       this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
       this.symbolTimer = Math.random() * 200;
       this.baseOpacity = 0.5 + Math.random() * 0.5;
@@ -552,23 +577,76 @@
       this.floatOffset = Math.random() * Math.PI * 2;
       this.floatAmp = 0.4 + Math.random() * 1.0;
       this.size = 8 + Math.random() * 3;
+      // For atom animation
+      this.imploding = false;
+      this.implodeX = 0;
+      this.implodeY = 0;
+      this.implodePhase = 0; // 0=idle, 1=imploding, 2=exploding to target
     }
 
     update(dt) {
-      const floatY = Math.sin(floatPhase + this.floatOffset) * this.floatAmp;
-      const floatX = Math.cos(floatPhase * 0.7 + this.floatOffset) * this.floatAmp * 0.5;
+      let tx, ty;
 
-      const tx = this.targetX + floatX;
-      const ty = this.targetY + floatY;
-
-      const dx = tx - this.x;
-      const dy = ty - this.y;
-      this.vx += dx * 0.08;
-      this.vy += dy * 0.08;
-      this.vx *= 0.85;
-      this.vy *= 0.85;
-      this.x += this.vx;
-      this.y += this.vy;
+      if (this.implodePhase === 1) {
+        // Phase 1: implode toward center point
+        tx = this.implodeX;
+        ty = this.implodeY;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Strong pull inward
+        this.vx += dx * 0.15;
+        this.vy += dy * 0.15;
+        this.vx *= 0.82;
+        this.vy *= 0.82;
+        this.x += this.vx;
+        this.y += this.vy;
+        // When close enough, switch to explode phase
+        if (dist < 5) {
+          this.implodePhase = 2;
+          // Burst outward from center
+          const angle = Math.random() * Math.PI * 2;
+          const force = 6 + Math.random() * 10;
+          this.vx = Math.cos(angle) * force;
+          this.vy = Math.sin(angle) * force;
+          this.isOrange = Math.random() < 0.5;
+          this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+        }
+      } else if (this.implodePhase === 2) {
+        // Phase 2: explode outward then settle to target
+        const floatY = Math.sin(floatPhase + this.floatOffset) * this.floatAmp;
+        const floatX = Math.cos(floatPhase * 0.7 + this.floatOffset) * this.floatAmp * 0.5;
+        tx = this.targetX + floatX;
+        ty = this.targetY + floatY;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        this.vx += dx * 0.06;
+        this.vy += dy * 0.06;
+        this.vx *= 0.88;
+        this.vy *= 0.88;
+        this.x += this.vx;
+        this.y += this.vy;
+        // Settle back to normal
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 3) {
+          this.implodePhase = 0;
+          this.isOrange = Math.random() < 0.25;
+        }
+      } else {
+        // Normal idle float
+        const floatY = Math.sin(floatPhase + this.floatOffset) * this.floatAmp;
+        const floatX = Math.cos(floatPhase * 0.7 + this.floatOffset) * this.floatAmp * 0.5;
+        tx = this.targetX + floatX;
+        ty = this.targetY + floatY;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        this.vx += dx * 0.08;
+        this.vy += dy * 0.08;
+        this.vx *= 0.85;
+        this.vy *= 0.85;
+        this.x += this.vx;
+        this.y += this.vy;
+      }
 
       this.symbolTimer -= dt;
       if (this.symbolTimer <= 0) {
@@ -580,58 +658,97 @@
 
     draw(ctx) {
       const col = this.isOrange ? ORANGE : WHITE;
-
-      // White glow shadow on all particles
       ctx.shadowColor = 'rgba(255, 255, 255, ' + (this.opacity * 0.35) + ')';
       ctx.shadowBlur = 6;
-
       ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + this.opacity + ')';
       ctx.font = this.size + 'px "JetBrains Mono", monospace';
       ctx.fillText(this.symbol, this.x, this.y);
     }
   }
 
-  function renderText(text, animate) {
-    const points = getTextPixels(text);
+  let lastCharBounds = [];
 
-    if (animate && particles.length > 0) {
+  function renderText(text, animate) {
+    const layout = getTextLayout(text);
+    const points = layout.points;
+    const charBounds = layout.charBounds;
+
+    if (animate && particles.length > 0 && currentText.length === text.length) {
+      // Find which characters changed
+      const changedChars = new Set();
+      for (let i = 0; i < text.length; i++) {
+        if (currentText[i] !== text[i]) changedChars.add(i);
+      }
+
       const newCount = points.length;
       const oldCount = particles.length;
 
+      // Update targets, only implode changed chars
       for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+        const oldCharIdx = particles[i].charIdx;
         particles[i].targetX = points[i].x;
         particles[i].targetY = points[i].y;
-        // Burst scatter
-        particles[i].vx += (Math.random() - 0.5) * 14;
-        particles[i].vy += (Math.random() - 0.5) * 14;
-        if (Math.random() < 0.5) {
-          particles[i].symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-          particles[i].isOrange = Math.random() < 0.4; // more orange during transition
+        particles[i].charIdx = points[i].charIdx;
+
+        if (changedChars.has(points[i].charIdx)) {
+          // Atom implosion: set implode center to the char's center
+          const cb = charBounds[points[i].charIdx];
+          particles[i].implodeX = cb.centerX;
+          particles[i].implodeY = cb.centerY;
+          particles[i].implodePhase = 1;
         }
       }
 
+      // Handle particle count differences
       for (let i = oldCount; i < newCount; i++) {
-        const p = new Particle(
-          canvasW / 2 + (Math.random() - 0.5) * canvasW,
-          canvasH / 2 + (Math.random() - 0.5) * canvasH
-        );
+        const cb = charBounds[points[i].charIdx];
+        const p = new Particle(cb.centerX, cb.centerY, points[i].charIdx);
         p.targetX = points[i].x;
         p.targetY = points[i].y;
+        p.implodePhase = 2;
+        const angle = Math.random() * Math.PI * 2;
+        const force = 6 + Math.random() * 10;
+        p.vx = Math.cos(angle) * force;
+        p.vy = Math.sin(angle) * force;
         p.opacity = 0;
         particles.push(p);
       }
 
       if (newCount < oldCount) {
         for (let i = newCount; i < oldCount; i++) {
-          particles[i].targetX = particles[i].x + (Math.random() - 0.5) * 300;
-          particles[i].targetY = particles[i].y + (Math.random() - 0.5) * 300;
           particles[i].baseOpacity = 0;
         }
         setTimeout(() => { particles.length = newCount; }, 800);
       }
+    } else if (animate && particles.length > 0) {
+      // Full text length changed — scatter all
+      const newCount = points.length;
+      const oldCount = particles.length;
+      for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+        particles[i].targetX = points[i].x;
+        particles[i].targetY = points[i].y;
+        particles[i].charIdx = points[i].charIdx;
+        particles[i].vx += (Math.random() - 0.5) * 14;
+        particles[i].vy += (Math.random() - 0.5) * 14;
+      }
+      for (let i = oldCount; i < newCount; i++) {
+        const p = new Particle(canvasW / 2 + (Math.random() - 0.5) * canvasW, canvasH / 2 + (Math.random() - 0.5) * canvasH, points[i].charIdx);
+        p.targetX = points[i].x;
+        p.targetY = points[i].y;
+        p.opacity = 0;
+        particles.push(p);
+      }
+      if (newCount < oldCount) {
+        for (let i = newCount; i < oldCount; i++) { particles[i].baseOpacity = 0; }
+        setTimeout(() => { particles.length = newCount; }, 800);
+      }
     } else {
-      particles = points.map(p => new Particle(p.x, p.y));
+      // First render — instant placement
+      particles = points.map(p => new Particle(p.x, p.y, p.charIdx));
     }
+
+    currentText = text;
+    lastCharBounds = charBounds;
   }
 
   let lastTime = performance.now();
@@ -679,7 +796,7 @@
     document.getElementById('statAddress').textContent = '92.74.178.143:8767';
     document.getElementById('statHash').textContent = '000000000000acd40018a6e8c0bd9281680cab39d18d2a9546745382a850c6dd';
     document.getElementById('versionLabel').textContent = 'Ravencoin:4.6.1';
-    timeSinceEl.innerHTML = 'Last block <span class="value">0:01:34</span> ago';
+    timeSinceEl.innerHTML = 'Last block <span class="value">00:01:34</span> ago';
     lastDataTime = Date.now();
   }
 
@@ -711,19 +828,32 @@
     socket.on('connect', () => { socketConnected = true; setConnected(true); });
     socket.on('disconnect', () => { setConnected(false); });
 
+    let lastRealHeight = null;
+    let staleCount = 0;
+
     socket.on('node_status', (data) => {
-      realDataReceived = true;
       lastDataTime = Date.now();
       setConnected(true);
 
-      if (data.blockHeight && data.blockHeight !== currentHeight) {
-        currentHeight = data.blockHeight;
-        mockHeight = data.blockHeight;
-        renderText(formatNumber(data.blockHeight), true);
+      if (data.blockHeight) {
+        // Track if real data is changing
+        if (lastRealHeight === data.blockHeight) {
+          staleCount++;
+        } else {
+          staleCount = 0;
+          realDataReceived = true;
+        }
+        lastRealHeight = data.blockHeight;
+
+        // Only render real data if it's actually changing (not stale stub)
+        if (staleCount < 2 && data.blockHeight !== currentHeight) {
+          currentHeight = data.blockHeight;
+          mockHeight = data.blockHeight;
+          renderText(formatNumber(data.blockHeight), true);
+        }
       }
       if (data.timeSinceBlock) {
-        let t = data.timeSinceBlock.replace(/^0 days,\s*/, '');
-        timeSinceEl.innerHTML = 'Last block <span class="value">' + escapeHtml(t) + '</span> ago';
+        timeSinceEl.innerHTML = 'Last block <span class="value">' + escapeHtml(formatTimeSince(data.timeSinceBlock)) + '</span> ago';
       }
       if (data.peers !== undefined) {
         statsGrid.style.display = '';
@@ -756,6 +886,25 @@
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+  }
+
+  // Parse "0 days, 0:1:34" or "1 days, 2:15:03" → "00:01:34" or "1d 02:15:03"
+  function formatTimeSince(raw) {
+    const m = raw.match(/(\d+)\s*days?,\s*(\d+):(\d+):(\d+)/);
+    if (m) {
+      const days = parseInt(m[1], 10);
+      const hh = m[2].padStart(2, '0');
+      const mm = m[3].padStart(2, '0');
+      const ss = m[4].padStart(2, '0');
+      if (days > 0) return days + 'd ' + hh + ':' + mm + ':' + ss;
+      return hh + ':' + mm + ':' + ss;
+    }
+    // Try "H:M:S" without days
+    const m2 = raw.match(/(\d+):(\d+):(\d+)/);
+    if (m2) {
+      return m2[1].padStart(2, '0') + ':' + m2[2].padStart(2, '0') + ':' + m2[3].padStart(2, '0');
+    }
+    return raw.trim();
   }
 
   // ── Panel ──
