@@ -107,8 +107,8 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1px;
-    max-width: 94%;
-    width: 94%;
+    max-width: 90%;
+    width: var(--stats-width, 720px);
     background: rgba(56, 77, 157, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -719,6 +719,14 @@
     const layout = getTextLayout(text);
     const points = layout.points;
     const charBounds = layout.charBounds;
+
+    // Sync stats grid width to match the particle number width
+    if (charBounds.length > 0) {
+      const firstChar = charBounds[0];
+      const lastChar = charBounds[charBounds.length - 1];
+      const textWidth = lastChar.right - firstChar.left + 40; // +40 padding
+      document.documentElement.style.setProperty('--stats-width', Math.max(textWidth, 500) + 'px');
+    }
 
     if (isFirstRender || !animate) {
       // ── INITIAL LOAD: spawn from scattered positions, transition smoothly to form ──
