@@ -692,20 +692,17 @@
         return particle;
       });
     } else {
-      // ── DIGIT UPDATE: only animate changed characters with atom implosion/explosion ──
-      // Find which characters changed
-      const changedChars = new Set();
+      // ── DIGIT UPDATE: per-character grouping, only animate changed digits ──
       const oldText = currentText;
 
+      // Determine which character positions changed
+      const changedChars = new Set();
       if (oldText.length === text.length) {
         for (let i = 0; i < text.length; i++) {
           if (oldText[i] !== text[i]) changedChars.add(i);
         }
       } else {
-        // Different length: figure out which positions changed
-        // Align from the left — commas and leading digits shift, so compare right-aligned
-        // Simple approach: mark all chars as changed for length-changing updates
-        // but still use atom animation per-char (not scatter-all)
+        // Right-align comparison for number strings (rightmost digits align)
         const maxLen = Math.max(oldText.length, text.length);
         for (let i = 0; i < maxLen; i++) {
           const oldIdx = oldText.length - maxLen + i;
@@ -716,47 +713,86 @@
         }
       }
 
-      const newCount = points.length;
-      const oldCount = particles.length;
+      // Group OLD particles by their charIdx
+      const oldGroups = {};
+      for (const p of particles) {
+        if (!oldGroups[p.charIdx]) oldGroups[p.charIdx] = [];
+        oldGroups[p.charIdx].push(p);
+      }
 
-      // Update all particle targets; only trigger atom animation for changed chars
-      for (let i = 0; i < Math.min(oldCount, newCount); i++) {
-        particles[i].targetX = points[i].x;
-        particles[i].targetY = points[i].y;
-        particles[i].charIdx = points[i].charIdx;
+      // Group NEW points by charIdx
+      const newGroups = {};
+      for (const pt of points) {
+        if (!newGroups[pt.charIdx]) newGroups[pt.charIdx] = [];
+        newGroups[pt.charIdx].push(pt);
+      }
 
-        if (changedChars.has(points[i].charIdx)) {
-          // Atom implosion for this particle
-          const cb = charBounds[points[i].charIdx];
-          particles[i].implodeX = cb.centerX;
-          particles[i].implodeY = cb.centerY;
-          particles[i].implodePhase = 1;
+      // Build new particle array, character by character
+      const newParticles = [];
+      const numChars = charBounds.length;
+
+      for (let ci = 0; ci < numChars; ci++) {
+        const newPts = newGroups[ci] || [];
+        const oldParts = oldGroups[ci] || [];
+        const isChanged = changedChars.has(ci);
+        const cb = charBounds[ci];
+
+        for (let j = 0; j < newPts.length; j++) {
+          if (j < oldParts.length) {
+            // Reuse existing particle
+            const p = oldParts[j];
+            p.targetX = newPts[j].x;
+            p.targetY = newPts[j].y;
+            p.charIdx = ci;
+
+            if (isChanged) {
+              // Atom implosion on this particle
+              p.implodeX = cb.centerX;
+              p.implodeY = cb.centerY;
+              p.implodePhase = 1;
+            }
+            // Unchanged: particle just floats to new target via spring (no animation)
+            newParticles.push(p);
+          } else {
+            // Need a new particle for this point
+            if (isChanged) {
+              // Spawn from center, explode outward
+              const p = new Particle(cb.centerX, cb.centerY, ci);
+              p.targetX = newPts[j].x;
+              p.targetY = newPts[j].y;
+              p.implodePhase = 2;
+              const angle = Math.random() * Math.PI * 2;
+              const force = 3 + Math.random() * 5;
+              p.vx = Math.cos(angle) * force;
+              p.vy = Math.sin(angle) * force;
+              p.opacity = 0;
+              newParticles.push(p);
+            } else {
+              // Unchanged char needs more particles — spawn at target directly
+              const p = new Particle(newPts[j].x, newPts[j].y, ci);
+              p.targetX = newPts[j].x;
+              p.targetY = newPts[j].y;
+              newParticles.push(p);
+            }
+          }
         }
-        // Unchanged chars: just smoothly update target (spring physics handles it)
-      }
 
-      // New particles needed (more points than before)
-      for (let i = oldCount; i < newCount; i++) {
-        const cb = charBounds[points[i].charIdx];
-        const p = new Particle(cb.centerX, cb.centerY, points[i].charIdx);
-        p.targetX = points[i].x;
-        p.targetY = points[i].y;
-        p.implodePhase = 2;
-        const angle = Math.random() * Math.PI * 2;
-        const force = 6 + Math.random() * 10;
-        p.vx = Math.cos(angle) * force;
-        p.vy = Math.sin(angle) * force;
-        p.opacity = 0;
-        particles.push(p);
-      }
-
-      // Excess particles (fewer points than before)
-      if (newCount < oldCount) {
-        for (let i = newCount; i < oldCount; i++) {
-          particles[i].baseOpacity = 0;
+        // Excess old particles for this char (digit needs fewer points now)
+        if (oldParts.length > newPts.length) {
+          for (let j = newPts.length; j < oldParts.length; j++) {
+            if (isChanged) {
+              // Implode to center then fade
+              oldParts[j].implodeX = cb.centerX;
+              oldParts[j].implodeY = cb.centerY;
+              oldParts[j].implodePhase = 1;
+              oldParts[j].baseOpacity = 0; // will fade after imploding
+            }
+            // else: just drop them (unchanged char shrunk slightly — rare)
+          }
         }
-        setTimeout(() => { particles.length = newCount; }, 800);
       }
+
+      particles = newParticles;
     }
 
     currentText = text;
