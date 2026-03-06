@@ -39,6 +39,10 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  @media (max-width: 768px) {
+    html, body { overflow: auto; overflow-x: hidden; height: auto; min-height: 100%; }
+  }
+
   #block-canvas {
     position: absolute;
     top: 50%;
@@ -46,6 +50,17 @@
     transform: translate(-50%, -60%);
     z-index: 1;
     pointer-events: none;
+  }
+
+  @media (max-width: 768px) {
+    #block-canvas {
+      position: relative;
+      top: auto;
+      left: auto;
+      transform: none;
+      display: block;
+      margin: 0 auto;
+    }
   }
 
   .main-wrapper {
@@ -411,10 +426,16 @@
     .stat-card:nth-child(5) { grid-column: 1 / -1 !important; }
     .side-panel { width: 100%; }
     .main-wrapper.panel-open { transform: translateX(0); opacity: 0.3; pointer-events: none; }
-    .main-wrapper { padding-bottom: 60px; }
-    .block-label { font-size: 9px; top: 6%; }
+    .main-wrapper {
+      height: auto;
+      min-height: auto;
+      justify-content: flex-start;
+      padding-bottom: 80px;
+      padding-top: 16px;
+    }
+    .block-label { font-size: 9px; position: relative; top: auto; left: auto; transform: none; text-align: center; padding: 16px 0 8px; }
     .time-since { font-size: 12px; margin-bottom: 24px; }
-    .version-bar { padding: 10px 16px; }
+    .version-bar { padding: 10px 16px; position: relative; }
   }
 </style>
 </head>
@@ -545,7 +566,7 @@
     const dpr = window.devicePixelRatio || 1;
     const isMobile = window.innerWidth <= 768;
     canvasW = isMobile ? window.innerWidth * 0.95 : Math.min(window.innerWidth * 0.85, 1200);
-    canvasH = isMobile ? Math.min(window.innerHeight * 0.3, 200) : Math.min(window.innerHeight * 0.45, 350);
+    canvasH = isMobile ? Math.min(window.innerHeight * 0.18, 140) : Math.min(window.innerHeight * 0.45, 350);
     canvas.width = canvasW * dpr;
     canvas.height = canvasH * dpr;
     canvas.style.width = canvasW + 'px';
