@@ -397,9 +397,24 @@
   .panel-log::-webkit-scrollbar-thumb { background: rgba(247, 147, 26, 0.15); border-radius: 2px; }
 
   @media (max-width: 768px) {
-    .stats-grid { grid-template-columns: repeat(2, 1fr); width: 95%; }
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      font-size: 14px;
+    }
+    .stat-label { font-size: 9px; letter-spacing: 2px; }
+    .stat-value { font-size: 14px; }
+    .stat-value.hash { font-size: 8px; word-break: break-all; }
+    .stat-card { padding: 14px 10px; }
+    /* Version spans full row on mobile */
+    .stat-card:nth-child(3) { grid-column: 1 / -1; }
+    /* Hash spans full row on mobile (override inline style) */
+    .stat-card:nth-child(5) { grid-column: 1 / -1 !important; }
     .side-panel { width: 100%; }
     .main-wrapper.panel-open { transform: translateX(0); opacity: 0.3; pointer-events: none; }
+    .main-wrapper { padding-bottom: 60px; }
+    .block-label { font-size: 9px; top: 6%; }
+    .time-since { font-size: 12px; margin-bottom: 24px; }
+    .version-bar { padding: 10px 16px; }
   }
 </style>
 </head>
@@ -528,8 +543,9 @@
 
   function initCanvas() {
     const dpr = window.devicePixelRatio || 1;
-    canvasW = Math.min(window.innerWidth * 0.85, 1200);
-    canvasH = Math.min(window.innerHeight * 0.45, 350);
+    const isMobile = window.innerWidth <= 768;
+    canvasW = isMobile ? window.innerWidth * 0.95 : Math.min(window.innerWidth * 0.85, 1200);
+    canvasH = isMobile ? Math.min(window.innerHeight * 0.3, 200) : Math.min(window.innerHeight * 0.45, 350);
     canvas.width = canvasW * dpr;
     canvas.height = canvasH * dpr;
     canvas.style.width = canvasW + 'px';
@@ -724,8 +740,9 @@
     if (charBounds.length > 0) {
       const firstChar = charBounds[0];
       const lastChar = charBounds[charBounds.length - 1];
-      const textWidth = lastChar.right - firstChar.left + 40; // +40 padding
-      document.documentElement.style.setProperty('--stats-width', Math.max(textWidth, 500) + 'px');
+      const textWidth = lastChar.right - firstChar.left + 40;
+      const maxW = window.innerWidth <= 768 ? window.innerWidth * 0.92 : window.innerWidth * 0.9;
+      document.documentElement.style.setProperty('--stats-width', Math.min(Math.max(textWidth, 500), maxW) + 'px');
     }
 
     if (isFirstRender || !animate) {
