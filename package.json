@@ -1,14 +1,17 @@
 {
-  "name": "rvn-status",
-  "version": "1.0.0",
-  "description": "Ravencoin Node Status",
-  "main": "index.js",
+  "name": "rvn-node-frontend",
+  "version": "3.0.0",
+  "description": "Ravencoin Node Status Dashboard — ZMQ-driven, file-based logs",
+  "main": "server.js",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.17.3"
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "zeromq": "^6.4.2"
   }
 }

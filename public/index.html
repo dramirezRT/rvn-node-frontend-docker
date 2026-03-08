@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ravencoin Node</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Ravencoin palette from logo */
+    --rvn-orange: #f7931a;
+    --rvn-orange-dim: rgba(247, 147, 26, 0.6);
+    --rvn-orange-glow: rgba(247, 147, 26, 0.25);
+    --rvn-orange-subtle: rgba(247, 147, 26, 0.1);
+    --rvn-amber: #f9a825;
+    --rvn-red-orange: #e8461e;
+    --rvn-blue: #384d9d;
+    --rvn-blue-dim: rgba(56, 77, 157, 0.6);
+    --rvn-blue-glow: rgba(56, 77, 157, 0.4);
+    --rvn-blue-subtle: rgba(56, 77, 157, 0.1);
+    --rvn-dark: #050508;
+    --rvn-surface: #0a0a10;
+    --rvn-surface-2: #12121a;
+    --rvn-text: #e0e0e0;
+    --rvn-text-dim: #666680;
+    --rvn-text-muted: #333348;
+    --panel-width: 480px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--rvn-dark);
+    color: var(--rvn-text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  @media (max-width: 768px), (max-height: 450px) {
+    html, body { overflow: auto; overflow-x: hidden; height: auto; min-height: 100%; }
+  }
+
+  #block-canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  @media (max-width: 768px), (max-height: 450px) {
+    #block-canvas {
+      position: relative;
+      top: auto;
+      left: auto;
+      transform: none;
+      display: block;
+      margin: 0 auto;
+    }
+  }
+
+  .main-wrapper {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 80px;
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .main-wrapper.panel-open {
+    transform: translateX(calc(var(--panel-width) / -2));
+  }
+
+  .block-label {
+    position: absolute;
+    top: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--rvn-orange);
+    opacity: 0.7;
+    z-index: 2;
+  }
+
+  .time-since {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--rvn-text-muted);
+    margin-bottom: 40px;
+    letter-spacing: 1px;
+    z-index: 2;
+    position: relative;
+    padding-bottom: 16px;
+  }
+
+  .time-since::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 1px;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, transparent 70%);
+    box-shadow: 0 0 12px rgba(255,255,255,0.1), 0 0 24px rgba(255,255,255,0.05);
+  }
+
+  .time-since .value { color: var(--rvn-amber); }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    max-width: 90%;
+    width: var(--stats-width, 720px);
+    background: rgba(56, 77, 157, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow:
+      0 4px 32px rgba(0, 0, 0, 0.6),
+      0 0 60px var(--rvn-blue-subtle),
+      0 0 100px rgba(247, 147, 26, 0.06),
+      inset 0 1px 0 rgba(247, 147, 26, 0.08);
+    z-index: 2;
+  }
+
+  .stat-card {
+    background: var(--rvn-surface);
+    padding: 24px 20px;
+    text-align: center;
+    transition: background 0.3s ease;
+  }
+
+  .stat-card:hover { background: var(--rvn-surface-2); }
+
+  .stat-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(160, 180, 240, 0.95);
+    margin-bottom: 10px;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-shadow: 0 0 4px rgba(160,180,240,0.8), 0 0 12px rgba(140,160,230,0.6), 0 0 28px rgba(100,130,220,0.4), 0 0 50px rgba(56,77,157,0.25);
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--rvn-text);
+    text-shadow: 0 0 4px rgba(255,255,255,0.5), 0 0 14px rgba(255,255,255,0.25), 0 0 30px rgba(255,255,255,0.1);
+  }
+
+  .stat-value.hash {
+    font-size: 11px;
+    color: var(--rvn-text-dim);
+    word-break: break-all;
+    line-height: 1.5;
+    text-shadow: 0 0 4px rgba(255,255,255,0.15);
+  }
+
+  .stat-value.accent { color: var(--rvn-orange); text-shadow: 0 0 4px rgba(247,147,26,0.7), 0 0 14px rgba(247,147,26,0.4), 0 0 30px rgba(247,147,26,0.2), 0 0 50px rgba(247,147,26,0.1); }
+
+  /* ── Version bar with white-fade shadow ── */
+  .version-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 14px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--rvn-text-muted);
+    letter-spacing: 1px;
+    z-index: 10;
+    background: linear-gradient(to top, rgba(5,5,8,0.97) 0%, rgba(5,5,8,0.7) 60%, transparent 100%);
+    box-shadow: 0 -4px 40px rgba(56,77,157,0.08), 0 -2px 80px rgba(247,147,26,0.04);
+  }
+
+  .status-indicator {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+  }
+
+  /* Status dot: orange core + blue contour ring */
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 10px;
+    transition: all 0.5s ease;
+  }
+
+  .status-dot.connected {
+    background: var(--rvn-orange);
+    border: 1.5px solid var(--rvn-blue);
+    box-shadow:
+      0 0 6px var(--rvn-orange-dim),
+      0 0 14px var(--rvn-blue-glow),
+      0 0 28px rgba(247,147,26,0.15),
+      0 0 40px rgba(56,77,157,0.1);
+    animation: dotPulseOk 2s ease-in-out infinite;
+  }
+
+  .status-dot.disconnected {
+    background: #e53935;
+    border: 1.5px solid #7a1a1a;
+    box-shadow: 0 0 6px rgba(229, 57, 53, 0.6), 0 0 16px rgba(229, 57, 53, 0.2);
+    animation: dotPulseFail 1.2s ease-in-out infinite;
+  }
+
+  @keyframes dotPulseOk {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 6px var(--rvn-orange-dim), 0 0 14px var(--rvn-blue-glow), 0 0 28px rgba(247,147,26,0.15), 0 0 40px rgba(56,77,157,0.1);
+    }
+    50% {
+      opacity: 0.65;
+      box-shadow: 0 0 3px var(--rvn-orange-dim), 0 0 8px var(--rvn-blue-glow), 0 0 16px rgba(247,147,26,0.08), 0 0 24px rgba(56,77,157,0.05);
+    }
+  }
+
+  @keyframes dotPulseFail {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .status-tooltip {
+    position: absolute;
+    bottom: 28px;
+    left: 0;
+    background: var(--rvn-surface-2);
+    border: 1px solid rgba(247, 147, 26, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 10px;
+    line-height: 1.8;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: all 0.25s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 20px rgba(255,255,255,0.03);
+    z-index: 100;
+  }
+
+  .status-indicator:hover .status-tooltip {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .legend-row { display: flex; align-items: center; gap: 8px; }
+
+  .legend-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .legend-dot.ok {
+    background: var(--rvn-orange);
+    border: 1px solid var(--rvn-blue);
+    box-shadow: 0 0 4px var(--rvn-orange-dim), 0 0 6px var(--rvn-blue-glow);
+  }
+
+  .legend-dot.fail {
+    background: #e53935;
+    box-shadow: 0 0 4px rgba(229, 57, 53, 0.5);
+  }
+
+  .legend-label { color: var(--rvn-text-dim); }
+  .legend-label.active-label { color: var(--rvn-text); }
+
+  /* ── Panel toggle ── */
+  .panel-toggle {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 100;
+    width: 28px;
+    height: 72px;
+    background: var(--rvn-surface);
+    border: 1px solid rgba(247, 147, 26, 0.08);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .panel-toggle:hover { background: var(--rvn-surface-2); width: 32px; }
+
+  .panel-toggle svg {
+    width: 12px; height: 12px;
+    fill: var(--rvn-orange-dim);
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .panel-toggle.open svg { transform: rotate(180deg); }
+
+  /* ── Side panel ── */
+  .side-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: var(--panel-width);
+    height: 100vh;
+    background: var(--rvn-surface);
+    border-left: 1px solid rgba(56, 77, 157, 0.12);
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.7), -4px 0 60px rgba(56, 77, 157, 0.08);
+  }
+
+  .side-panel.open { transform: translateX(0); }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(247, 147, 26, 0.06);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .panel-tabs { display: flex; flex: 1; }
+
+  .panel-tab {
+    flex: 1; padding: 14px; text-align: center;
+    font-size: 10px; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--rvn-text-muted);
+    cursor: pointer; border: none; border-bottom: 2px solid transparent;
+    transition: all 0.3s ease; background: none; font-family: inherit;
+  }
+
+  .panel-tab:hover { color: var(--rvn-text-dim); }
+  .panel-tab.active { color: var(--rvn-orange); border-bottom-color: var(--rvn-blue); }
+
+  /* Floating close button */
+  .panel-close-float {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: var(--rvn-surface-2);
+    border: 1px solid rgba(247, 147, 26, 0.15);
+    color: var(--rvn-orange);
+    font-size: 16px;
+    font-weight: 300;
+    transition: all 0.3s ease;
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.4),
+      0 0 12px rgba(247, 147, 26, 0.08),
+      0 0 20px rgba(255,255,255,0.03);
+    z-index: 60;
+    line-height: 1;
+  }
+
+  .panel-close-float:hover {
+    background: var(--rvn-orange);
+    color: #000;
+    border-color: var(--rvn-orange);
+    box-shadow:
+      0 2px 12px rgba(0,0,0,0.5),
+      0 0 16px var(--rvn-orange-dim),
+      0 0 30px rgba(255,255,255,0.06);
+    transform: scale(1.1);
+  }
+
+  .panel-log {
+    flex: 1; overflow-y: auto; padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; line-height: 1.7;
+    color: var(--rvn-text-dim);
+    white-space: pre-wrap; word-break: break-all;
+    display: none;
+  }
+
+  .panel-log.active { display: block; }
+  .panel-log::-webkit-scrollbar { width: 3px; }
+  .panel-log::-webkit-scrollbar-track { background: transparent; }
+  .panel-log::-webkit-scrollbar-thumb { background: rgba(247, 147, 26, 0.15); border-radius: 2px; }
+
+  @media (max-width: 768px), (max-height: 450px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      font-size: 14px;
+    }
+    .stat-label { font-size: 9px; letter-spacing: 2px; }
+    .stat-value { font-size: 14px; }
+    .stat-value.hash { font-size: 8px; word-break: break-all; }
+    .stat-card { padding: 14px 10px; }
+    /* Version spans full row on mobile */
+    .stat-card:nth-child(3) { grid-column: 1 / -1; }
+    /* Hash spans full row on mobile (override inline style) */
+    .stat-card:nth-child(5) { grid-column: 1 / -1 !important; }
+    .side-panel { width: 100%; }
+    .main-wrapper.panel-open { transform: translateX(0); opacity: 0.3; pointer-events: none; }
+    .main-wrapper {
+      height: auto;
+      min-height: auto;
+      justify-content: flex-start;
+      padding-bottom: 80px;
+      padding-top: 16px;
+    }
+    .block-label { font-size: 9px; position: relative; top: auto; left: auto; transform: none; text-align: center; padding: 16px 0 8px; }
+    .time-since { font-size: 12px; margin-bottom: 24px; }
+    .version-bar { padding: 10px 16px; position: relative; }
+  }
+</style>
+</head>
+<body>
+
+<div class="block-label">Block Height</div>
+<canvas id="block-canvas"></canvas>
+
+<div class="main-wrapper" id="main">
+  <div class="time-since" id="timeSince"></div>
+
+  <div class="stats-grid" id="statsGrid" style="display:none;">
+    <div class="stat-card">
+      <div class="stat-label">Peers</div>
+      <div class="stat-value accent" id="statPeers">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Score</div>
+      <div class="stat-value accent" id="statScore">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Version</div>
+      <div class="stat-value" id="statVersion">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Endpoint</div>
+      <div class="stat-value" id="statAddress">--</div>
+    </div>
+    <div class="stat-card" style="grid-column: 2 / 4;">
+      <div class="stat-label">Block Hash</div>
+      <div class="stat-value hash" id="statHash">--</div>
+    </div>
+  </div>
+</div>
+
+<div class="version-bar">
+  <div class="status-indicator" id="statusIndicator">
+    <span class="status-dot connected" id="statusDot"></span>
+    <span id="versionLabel">Ravencoin Node</span>
+    <div class="status-tooltip">
+      <div class="legend-row">
+        <span class="legend-dot ok"></span>
+        <span class="legend-label" id="legendOk">Connected -- receiving blocks</span>
+      </div>
+      <div class="legend-row" style="margin-top:4px;">
+        <span class="legend-dot fail"></span>
+        <span class="legend-label" id="legendFail">Disconnected -- node unreachable</span>
+      </div>
+    </div>
+  </div>
+  <div id="lastUpdate"></div>
+</div>
+
+<button class="panel-toggle" id="panelToggle" aria-label="Toggle log panel">
+  <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+</button>
+
+<div class="side-panel" id="sidePanel">
+  <div class="panel-header">
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-tab="core">Raven Core</button>
+      <button class="panel-tab" data-tab="electrumx">ElectrumX</button>
+    </div>
+    <button class="panel-close-float" id="panelClose" aria-label="Close panel">&times;</button>
+  </div>
+  <div class="panel-log active" id="log-core"></div>
+  <div class="panel-log" id="log-electrumx"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const timeSinceEl = document.getElementById('timeSince');
+  const statsGrid = document.getElementById('statsGrid');
+  const panelToggle = document.getElementById('panelToggle');
+  const sidePanel = document.getElementById('sidePanel');
+  const mainWrapper = document.getElementById('main');
+  const panelClose = document.getElementById('panelClose');
+  const statusDot = document.getElementById('statusDot');
+  const legendOk = document.getElementById('legendOk');
+  const legendFail = document.getElementById('legendFail');
+
+  let currentHeight = null;
+  let panelOpen = false;
+  let subscribedCore = false;
+  let subscribedElectrumx = false;
+  let lastDataTime = 0;
+
+  function setConnected(ok) {
+    statusDot.className = 'status-dot ' + (ok ? 'connected' : 'disconnected');
+    legendOk.className = 'legend-label' + (ok ? ' active-label' : '');
+    legendFail.className = 'legend-label' + (!ok ? ' active-label' : '');
+  }
+
+  setInterval(() => {
+    if (lastDataTime && Date.now() - lastDataTime > 30000) setConnected(false);
+  }, 15000);
+
+  // ═══════════════════════════════════════════
+  // PARTICLE TEXT ENGINE — atom implosion/explosion per digit
+  // ═══════════════════════════════════════════
+
+  const canvas = document.getElementById('block-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const SYMBOLS = '#@%&*+~?$!=<>^:;.'.split('');
+  // Full Ravencoin palette
+  const COLORS = [
+    { r: 255, g: 255, b: 255 },  // white (dominant)
+    { r: 255, g: 255, b: 255 },  // white
+    { r: 255, g: 255, b: 255 },  // white
+    { r: 247, g: 147, b: 26 },   // orange
+    { r: 249, g: 168, b: 37 },   // amber
+    { r: 232, g: 70, b: 30 },    // red-orange
+    { r: 140, g: 160, b: 230 },  // light periwinkle blue (readable on dark)
+    { r: 120, g: 140, b: 220 },  // soft blue
+  ];
+
+  let particles = [];
+  let canvasW, canvasH;
+  let floatPhase = 0;
+  let currentText = '';
+  let lastFontSize = 100;
+
+  function initCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const isMobile = window.innerWidth <= 768 || window.innerHeight <= 450;
+    canvasW = isMobile ? window.innerWidth * 0.95 : Math.min(window.innerWidth * 0.85, 1200);
+    canvasH = isMobile ? Math.min(window.innerHeight * 0.18, 140) : Math.min(window.innerHeight * 0.45, 350);
+    canvas.width = canvasW * dpr;
+    canvas.height = canvasH * dpr;
+    canvas.style.width = canvasW + 'px';
+    canvas.style.height = canvasH + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  window.addEventListener('resize', () => {
+    initCanvas();
+    if (currentHeight) renderText(formatNumber(currentHeight), false);
+  });
+  initCanvas();
+
+  // Get pixel positions AND character boundaries for per-char animation
+  function getTextLayout(text) {
+    const off = document.createElement('canvas');
+    const octx = off.getContext('2d');
+    off.width = canvasW;
+    off.height = canvasH;
+
+    let fontSize = Math.min(canvasH * 0.75, canvasW / (text.length * 0.62));
+    fontSize = Math.max(40, Math.min(fontSize, 200));
+    lastFontSize = fontSize;
+
+    const font = 'bold ' + fontSize + 'px "JetBrains Mono", monospace';
+    octx.font = font;
+    octx.textAlign = 'center';
+    octx.textBaseline = 'middle';
+
+    // Measure each character's x-range
+    const totalWidth = octx.measureText(text).width;
+    const startX = canvasW / 2 - totalWidth / 2;
+    const charBounds = [];
+    let cx = startX;
+    for (let i = 0; i < text.length; i++) {
+      const w = octx.measureText(text[i]).width;
+      charBounds.push({ left: cx, right: cx + w, centerX: cx + w / 2, centerY: canvasH / 2, char: text[i], idx: i });
+      cx += w;
+    }
+
+    // Render full text and sample
+    octx.fillStyle = '#fff';
+    octx.fillText(text, canvasW / 2, canvasH / 2);
+
+    const imageData = octx.getImageData(0, 0, canvasW, canvasH);
+    const pixels = imageData.data;
+    const points = [];
+    // Denser sampling on smaller screens for readable particles
+    const gap = Math.max(3, Math.min(7, Math.floor(fontSize / 20)));
+
+    for (let y = 0; y < canvasH; y += gap) {
+      for (let x = 0; x < canvasW; x += gap) {
+        const i = (y * canvasW + x) * 4;
+        if (pixels[i] > 128) {
+          // Assign to a character
+          let charIdx = 0;
+          for (let c = 0; c < charBounds.length; c++) {
+            if (x >= charBounds[c].left && x < charBounds[c].right) { charIdx = c; break; }
+            if (c === charBounds.length - 1) charIdx = c;
+          }
+          points.push({ x, y, charIdx });
+        }
+      }
+    }
+    return { points, charBounds };
+  }
+
+  class Particle {
+    constructor(x, y, charIdx) {
+      this.x = x;
+      this.y = y;
+      this.targetX = x;
+      this.targetY = y;
+      this.vx = 0;
+      this.vy = 0;
+      this.charIdx = charIdx;
+      this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+      this.symbolTimer = Math.random() * 200;
+      this.baseOpacity = 0.5 + Math.random() * 0.5;
+      this.opacity = this.baseOpacity;
+      this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      this.floatOffset = Math.random() * Math.PI * 2;
+      this.floatAmp = 0.2 + Math.random() * 0.5;
+      this.size = 8 + Math.random() * 3;
+      // For atom animation
+      this.imploding = false;
+      this.implodeX = 0;
+      this.implodeY = 0;
+      this.implodePhase = 0; // 0=idle, 1=imploding, 2=exploding to target
+    }
+
+    update(dt) {
+      let tx, ty;
+
+      if (this.implodePhase === 1) {
+        // Phase 1: implode toward center point
+        tx = this.implodeX;
+        ty = this.implodeY;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Strong pull inward
+        this.vx += dx * 0.15;
+        this.vy += dy * 0.15;
+        this.vx *= 0.82;
+        this.vy *= 0.82;
+        this.x += this.vx;
+        this.y += this.vy;
+        // When close enough, switch to explode phase
+        if (dist < 5) {
+          this.implodePhase = 2;
+          // Burst outward from center — moderate, not too far
+          const angle = Math.random() * Math.PI * 2;
+          const force = 3 + Math.random() * 5;
+          this.vx = Math.cos(angle) * force;
+          this.vy = Math.sin(angle) * force;
+          this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+          this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+        }
+      } else if (this.implodePhase === 2) {
+        // Phase 2: explode outward then quickly settle to target
+        const floatY = Math.sin(floatPhase + this.floatOffset) * this.floatAmp;
+        const floatX = Math.cos(floatPhase * 0.7 + this.floatOffset) * this.floatAmp * 0.5;
+        tx = this.targetX + floatX;
+        ty = this.targetY + floatY;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        this.vx += dx * 0.12;
+        this.vy += dy * 0.12;
+        this.vx *= 0.80;
+        this.vy *= 0.80;
+        this.x += this.vx;
+        this.y += this.vy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 3) {
+          this.implodePhase = 0;
+          this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        }
+      } else {
+        // Normal idle float
+        const floatY = Math.sin(floatPhase + this.floatOffset) * this.floatAmp;
+        const floatX = Math.cos(floatPhase * 0.7 + this.floatOffset) * this.floatAmp * 0.5;
+        tx = this.targetX + floatX;
+        ty = this.targetY + floatY;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        this.vx += dx * 0.12;
+        this.vy += dy * 0.12;
+        this.vx *= 0.80;
+        this.vy *= 0.80;
+        this.x += this.vx;
+        this.y += this.vy;
+      }
+
+      this.symbolTimer -= dt;
+      if (this.symbolTimer <= 0) {
+        this.symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+        this.symbolTimer = 100 + Math.random() * 400;
+        this.opacity = this.baseOpacity * (0.75 + Math.random() * 0.25);
+      }
+    }
+
+    draw(ctx) {
+      const col = this.color;
+      // Colored glow shadow — orange/amber particles glow orange, blue glow blue, white glows white
+      const isWarm = col.r > 200 && col.g < 200;
+      const isBlue = col.b > 140 && col.r < 100;
+      if (isBlue) {
+        ctx.shadowColor = 'rgba(56, 77, 157, ' + (this.opacity * 0.6) + ')';
+        ctx.shadowBlur = 10;
+      } else if (isWarm) {
+        ctx.shadowColor = 'rgba(247, 147, 26, ' + (this.opacity * 0.5) + ')';
+        ctx.shadowBlur = 8;
+      } else {
+        ctx.shadowColor = 'rgba(255, 255, 255, ' + (this.opacity * 0.4) + ')';
+        ctx.shadowBlur = 6;
+      }
+      ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + this.opacity + ')';
+      ctx.font = this.size + 'px "JetBrains Mono", monospace';
+      ctx.fillText(this.symbol, this.x, this.y);
+    }
+  }
+
+  let lastCharBounds = [];
+  let isFirstRender = true;
+
+  function renderText(text, animate) {
+    const layout = getTextLayout(text);
+    const points = layout.points;
+    const charBounds = layout.charBounds;
+
+    // Sync stats grid width to match the particle number width
+    if (charBounds.length > 0) {
+      const firstChar = charBounds[0];
+      const lastChar = charBounds[charBounds.length - 1];
+      const textWidth = lastChar.right - firstChar.left + 40;
+      const isMob = window.innerWidth <= 768 || window.innerHeight <= 450;
+      const maxW = isMob ? window.innerWidth * 0.92 : window.innerWidth * 0.9;
+      document.documentElement.style.setProperty('--stats-width', Math.min(Math.max(textWidth, 500), maxW) + 'px');
+    }
+
+    if (isFirstRender || !animate) {
+      // ── INITIAL LOAD: spawn from scattered positions, transition smoothly to form ──
+      isFirstRender = false;
+      particles = points.map(p => {
+        // Spawn from nearby scatter — close enough to settle in ~1.5s
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 20 + Math.random() * 60;
+        const spawnX = p.x + Math.cos(angle) * dist;
+        const spawnY = p.y + Math.sin(angle) * dist;
+        const particle = new Particle(spawnX, spawnY, p.charIdx);
+        particle.targetX = p.x;
+        particle.targetY = p.y;
+        // Initial velocity toward target for snappy convergence
+        particle.vx = (p.x - spawnX) * 0.1;
+        particle.vy = (p.y - spawnY) * 0.1;
+        particle.opacity = 0; // fade in
+        return particle;
+      });
+    } else {
+      // ── DIGIT UPDATE: per-character grouping, only animate changed digits ──
+      const oldText = currentText;
+
+      // Determine which character positions changed
+      const changedChars = new Set();
+      if (oldText.length === text.length) {
+        for (let i = 0; i < text.length; i++) {
+          if (oldText[i] !== text[i]) changedChars.add(i);
+        }
+      } else {
+        // Right-align comparison for number strings (rightmost digits align)
+        const maxLen = Math.max(oldText.length, text.length);
+        for (let i = 0; i < maxLen; i++) {
+          const oldIdx = oldText.length - maxLen + i;
+          const newIdx = text.length - maxLen + i;
+          const oldCh = oldIdx >= 0 ? oldText[oldIdx] : '';
+          const newCh = newIdx >= 0 ? text[newIdx] : '';
+          if (oldCh !== newCh && newIdx >= 0) changedChars.add(newIdx);
+        }
+      }
+
+      // Group OLD particles by their charIdx
+      const oldGroups = {};
+      for (const p of particles) {
+        if (!oldGroups[p.charIdx]) oldGroups[p.charIdx] = [];
+        oldGroups[p.charIdx].push(p);
+      }
+
+      // Group NEW points by charIdx
+      const newGroups = {};
+      for (const pt of points) {
+        if (!newGroups[pt.charIdx]) newGroups[pt.charIdx] = [];
+        newGroups[pt.charIdx].push(pt);
+      }
+
+      // Build new particle array, character by character
+      const newParticles = [];
+      const numChars = charBounds.length;
+
+      for (let ci = 0; ci < numChars; ci++) {
+        const newPts = newGroups[ci] || [];
+        const oldParts = oldGroups[ci] || [];
+        const isChanged = changedChars.has(ci);
+        const cb = charBounds[ci];
+
+        for (let j = 0; j < newPts.length; j++) {
+          if (j < oldParts.length) {
+            // Reuse existing particle
+            const p = oldParts[j];
+            p.targetX = newPts[j].x;
+            p.targetY = newPts[j].y;
+            p.charIdx = ci;
+
+            if (isChanged) {
+              // Atom implosion on this particle
+              p.implodeX = cb.centerX;
+              p.implodeY = cb.centerY;
+              p.implodePhase = 1;
+            }
+            // Unchanged: particle just floats to new target via spring (no animation)
+            newParticles.push(p);
+          } else {
+            // Need a new particle for this point
+            if (isChanged) {
+              // Spawn from center, explode outward
+              const p = new Particle(cb.centerX, cb.centerY, ci);
+              p.targetX = newPts[j].x;
+              p.targetY = newPts[j].y;
+              p.implodePhase = 2;
+              const angle = Math.random() * Math.PI * 2;
+              const force = 3 + Math.random() * 5;
+              p.vx = Math.cos(angle) * force;
+              p.vy = Math.sin(angle) * force;
+              p.opacity = 0;
+              newParticles.push(p);
+            } else {
+              // Unchanged char needs more particles — spawn at target directly
+              const p = new Particle(newPts[j].x, newPts[j].y, ci);
+              p.targetX = newPts[j].x;
+              p.targetY = newPts[j].y;
+              newParticles.push(p);
+            }
+          }
+        }
+
+        // Excess old particles for this char (digit needs fewer points now)
+        if (oldParts.length > newPts.length) {
+          for (let j = newPts.length; j < oldParts.length; j++) {
+            if (isChanged) {
+              // Implode to center then fade
+              oldParts[j].implodeX = cb.centerX;
+              oldParts[j].implodeY = cb.centerY;
+              oldParts[j].implodePhase = 1;
+              oldParts[j].baseOpacity = 0; // will fade after imploding
+            }
+            // else: just drop them (unchanged char shrunk slightly — rare)
+          }
+        }
+      }
+
+      particles = newParticles;
+    }
+
+    currentText = text;
+    lastCharBounds = charBounds;
+  }
+
+  let lastTime = performance.now();
+
+  function animateLoop() {
+    const now = performance.now();
+    const dt = now - lastTime;
+    lastTime = now;
+    floatPhase += dt * 0.001;
+
+    ctx.clearRect(0, 0, canvasW, canvasH);
+
+    for (const p of particles) {
+      p.update(dt);
+      p.draw(ctx);
+      if (p.opacity < p.baseOpacity) {
+        p.opacity = Math.min(p.opacity + dt * 0.003, p.baseOpacity);
+      }
+    }
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    requestAnimationFrame(animateLoop);
+  }
+
+  renderText('- - - - - -', false);
+  animateLoop();
+
+  // ═══════════════════════════════════════════
+  // MOCK: Always run mock to demo block changes
+  // (Real socket data overrides when available)
+  // ═══════════════════════════════════════════
+
+  let mockHeight = 4267123;
+  let realDataReceived = false;
+
+  function initMock() {
+    currentHeight = mockHeight;
+    renderText(formatNumber(mockHeight), false);
+    statsGrid.style.display = '';
+    document.getElementById('statPeers').textContent = '12';
+    document.getElementById('statScore').textContent = '3';
+    document.getElementById('statVersion').textContent = 'Ravencoin:4.6.1';
+    document.getElementById('statAddress').textContent = '92.74.178.143:8767';
+    document.getElementById('statHash').textContent = '000000000000acd40018a6e8c0bd9281680cab39d18d2a9546745382a850c6dd';
+    document.getElementById('versionLabel').textContent = 'Ravencoin:4.6.1';
+    timeSinceEl.innerHTML = 'Last block <span class="value">00:01:34</span> ago';
+    lastDataTime = Date.now();
+  }
+
+  function mockTick() {
+    mockHeight += 1;
+    currentHeight = mockHeight;
+    renderText(formatNumber(mockHeight), true);
+    lastDataTime = Date.now();
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    const h = Array.from({length: 64}, () => '0123456789abcdef'[Math.floor(Math.random()*16)]).join('');
+    document.getElementById('statHash').textContent = h;
+  }
+
+  // Always run mock ticks — real changing data will override via realDataReceived check
+  // The mock increments the number so you can see the particle transition
+  setTimeout(() => {
+    initMock();
+    // First tick after 8s to let initial animation fully settle
+    setTimeout(() => setInterval(mockTick, 8000), 8000);
+  }, 500);
+
+  // ═══════════════════════════════════════════
+  // SOCKET
+  // ═══════════════════════════════════════════
+
+  let socketConnected = false;
+  try {
+    var socket = io({ timeout: 5000, reconnectionAttempts: 3 });
+
+    socket.on('connect', () => { socketConnected = true; setConnected(true); });
+    socket.on('disconnect', () => { setConnected(false); });
+
+    let lastRealHeight = null;
+    let staleCount = 0;
+
+    socket.on('node_status', (data) => {
+      lastDataTime = Date.now();
+      setConnected(true);
+
+      if (data.blockHeight) {
+        // Track if real data is changing
+        if (lastRealHeight === data.blockHeight) {
+          staleCount++;
+        } else {
+          staleCount = 0;
+          realDataReceived = true;
+        }
+        lastRealHeight = data.blockHeight;
+
+        // Only render real data if it's actually changing (not stale stub)
+        if (staleCount < 2 && data.blockHeight !== currentHeight) {
+          currentHeight = data.blockHeight;
+          mockHeight = data.blockHeight;
+          renderText(formatNumber(data.blockHeight), true);
+        }
+      }
+      if (data.timeSinceBlock) {
+        timeSinceEl.innerHTML = 'Last block <span class="value">' + escapeHtml(formatTimeSince(data.timeSinceBlock)) + '</span> ago';
+      }
+      if (data.peers !== undefined) {
+        statsGrid.style.display = '';
+        document.getElementById('statPeers').textContent = data.peers;
+      }
+      if (data.score !== undefined) document.getElementById('statScore').textContent = data.score;
+      if (data.version) {
+        const match = data.version.match(/^([^(]+)\(([^)]+)\)/);
+        document.getElementById('statVersion').textContent = match ? match[1].trim() : data.version;
+        document.getElementById('versionLabel').textContent = data.version.split('(')[0].trim();
+      }
+      if (data.blockHash) document.getElementById('statHash').textContent = data.blockHash;
+      if (data.ipPort) {
+        const parts = data.ipPort.split('/');
+        document.getElementById('statAddress').textContent = parts.length === 2 ? parts[0] + ':' + parts[1] : data.ipPort;
+      }
+      if (data.updatedAt) document.getElementById('lastUpdate').textContent = new Date(data.updatedAt).toLocaleTimeString();
+    });
+
+    socket.on('log_core', (text) => appendLog('log-core', text));
+    socket.on('log_electrumx', (text) => appendLog('log-electrumx', text));
+  } catch(e) {}
+
+  // ── Helpers ──
+  function formatNumber(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // Parse "0 days, 0:1:34" or "1 days, 2:15:03" → "00:01:34" or "1d 02:15:03"
+  function formatTimeSince(raw) {
+    const m = raw.match(/(\d+)\s*days?,\s*(\d+):(\d+):(\d+)/);
+    if (m) {
+      const days = parseInt(m[1], 10);
+      const hh = m[2].padStart(2, '0');
+      const mm = m[3].padStart(2, '0');
+      const ss = m[4].padStart(2, '0');
+      if (days > 0) return days + 'd ' + hh + ':' + mm + ':' + ss;
+      return hh + ':' + mm + ':' + ss;
+    }
+    // Try "H:M:S" without days
+    const m2 = raw.match(/(\d+):(\d+):(\d+)/);
+    if (m2) {
+      return m2[1].padStart(2, '0') + ':' + m2[2].padStart(2, '0') + ':' + m2[3].padStart(2, '0');
+    }
+    return raw.trim();
+  }
+
+  // ── Panel ──
+  function togglePanel(open) {
+    panelOpen = typeof open === 'boolean' ? open : !panelOpen;
+    sidePanel.classList.toggle('open', panelOpen);
+    panelToggle.classList.toggle('open', panelOpen);
+    mainWrapper.classList.toggle('panel-open', panelOpen);
+    if (panelOpen && !subscribedCore && socketConnected) {
+      subscribedCore = true;
+      socket.emit('subscribe_logs', 'core');
+    }
+  }
+
+  panelToggle.addEventListener('click', () => togglePanel());
+  panelClose.addEventListener('click', () => togglePanel(false));
+
+  document.querySelectorAll('.panel-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel-log').forEach(l => l.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.tab;
+      document.getElementById('log-' + target).classList.add('active');
+      if (target === 'electrumx' && !subscribedElectrumx && socketConnected) {
+        subscribedElectrumx = true; socket.emit('subscribe_logs', 'electrumx');
+      }
+      if (target === 'core' && !subscribedCore && socketConnected) {
+        subscribedCore = true; socket.emit('subscribe_logs', 'core');
+      }
+    });
+  });
+
+  function appendLog(id, text) {
+    const el = document.getElementById(id);
+    const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+    el.textContent += text;
+    if (el.textContent.length > 200000) el.textContent = el.textContent.slice(-100000);
+    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+  }
+
+})();
+</script>
+</body>
+</html>
