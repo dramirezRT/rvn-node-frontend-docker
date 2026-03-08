@@ -922,10 +922,10 @@
   animateLoop();
 
   // ═══════════════════════════════════════════
-  // MOCK: Always run mock to demo block changes
-  // (Real socket data overrides when available)
+  // DEMO MODE: disabled by default, enable with ?demo=true
   // ═══════════════════════════════════════════
 
+  const demoMode = new URLSearchParams(window.location.search).get('demo') === 'true';
   let mockHeight = 4267123;
   let realDataReceived = false;
 
@@ -953,13 +953,44 @@
     document.getElementById('statHash').textContent = h;
   }
 
-  // Always run mock ticks — real changing data will override via realDataReceived check
-  // The mock increments the number so you can see the particle transition
-  setTimeout(() => {
-    initMock();
-    // First tick after 8s to let initial animation fully settle
-    setTimeout(() => setInterval(mockTick, 8000), 8000);
-  }, 500);
+  if (demoMode) {
+    setTimeout(() => {
+      initMock();
+      setTimeout(() => setInterval(mockTick, 8000), 8000);
+    }, 500);
+  }
+
+  // ═══════════════════════════════════════════
+  // LIVE BLOCK TIME COUNTER — ticks every second between ZMQ updates
+  // ═══════════════════════════════════════════
+
+  let lastBlockTime = null; // unix timestamp of last block
+  let blockTimeInterval = null;
+
+  function startBlockTimeCounter(blockTimestamp) {
+    lastBlockTime = blockTimestamp;
+    if (blockTimeInterval) clearInterval(blockTimeInterval);
+
+    function updateTimeSince() {
+      if (!lastBlockTime) return;
+      const now = Math.floor(Date.now() / 1000);
+      const diff = Math.max(0, now - lastBlockTime);
+      const days = Math.floor(diff / 86400);
+      const h = Math.floor((diff % 86400) / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      let formatted;
+      if (days > 0) {
+        formatted = days + 'd ' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+      } else {
+        formatted = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+      }
+      timeSinceEl.innerHTML = 'Last block <span class="value">' + formatted + '</span> ago';
+    }
+
+    updateTimeSince();
+    blockTimeInterval = setInterval(updateTimeSince, 1000);
+  }
 
   // ═══════════════════════════════════════════
   // SOCKET
@@ -980,25 +1011,24 @@
       setConnected(true);
 
       if (data.blockHeight) {
-        // Track if real data is changing
-        if (lastRealHeight === data.blockHeight) {
-          staleCount++;
-        } else {
-          staleCount = 0;
-          realDataReceived = true;
-        }
-        lastRealHeight = data.blockHeight;
+        realDataReceived = true;
 
-        // Only render real data if it's actually changing (not stale stub)
-        if (staleCount < 2 && data.blockHeight !== currentHeight) {
+        // Update block height with particle animation when it changes
+        if (data.blockHeight !== currentHeight) {
           currentHeight = data.blockHeight;
           mockHeight = data.blockHeight;
           renderText(formatNumber(data.blockHeight), true);
         }
       }
-      if (data.timeSinceBlock) {
+
+      // Start/reset live block time counter using unix timestamp
+      if (data.blockTime) {
+        startBlockTimeCounter(data.blockTime);
+      } else if (data.timeSinceBlock) {
+        // Fallback: parse the formatted string
         timeSinceEl.innerHTML = 'Last block <span class="value">' + escapeHtml(formatTimeSince(data.timeSinceBlock)) + '</span> ago';
       }
+
       if (data.peers !== undefined) {
         statsGrid.style.display = '';
         document.getElementById('statPeers').textContent = data.peers;
