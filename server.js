@@ -198,6 +198,7 @@ class NodeDataManager {
     return {
       blockHeight: s.blockCount,
       blockHash: s.bestBlockHash,
+      blockTime: s.blockTime,           // unix timestamp for live client-side counter
       peers: s.peerCount,
       score: s.nodeScore,
       version: s.version,
