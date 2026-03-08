@@ -178,23 +178,52 @@ class NodeDataManager {
     this.refreshing = true;
     try {
       this.stats = await getNodeStats();
+      // Derive legacy format for index.html compatibility
+      this.legacyStats = this.stats.error ? this.stats : this._toLegacy(this.stats);
       this.broadcast();
     } finally {
       this.refreshing = false;
     }
   }
 
+  /** Convert rich stats to legacy node_status format (used by index.html) */
+  _toLegacy(s) {
+    const timeDiff = s.blockTimeDiff || 0;
+    const days = Math.floor(timeDiff / 86400);
+    const h = Math.floor((timeDiff % 86400) / 3600);
+    const m = Math.floor((timeDiff % 3600) / 60);
+    const sec = timeDiff % 60;
+    const timeSinceBlock = `${days} days, ${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+
+    return {
+      blockHeight: s.blockCount,
+      blockHash: s.bestBlockHash,
+      peers: s.peerCount,
+      score: s.nodeScore,
+      version: s.version,
+      ipPort: s.nodeIP,
+      timeSinceBlock,
+      updatedAt: Date.now(),
+      // Pass through extra fields for any future UI use
+      difficulty: s.difficulty,
+      networkHashrate: s.networkHashrate,
+      connections: s.connections,
+      chain: s.chain,
+      chainSize: s.chainSize,
+    };
+  }
+
   broadcast() {
     for (const fn of this.listeners) {
       try {
-        fn(this.stats);
+        fn(this.stats, this.legacyStats);
       } catch (_) {}
     }
   }
 
   subscribe(fn) {
     this.listeners.add(fn);
-    if (this.stats) fn(this.stats);
+    if (this.stats) fn(this.stats, this.legacyStats);
     return () => this.listeners.delete(fn);
   }
 }
@@ -395,25 +424,31 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// ─── Log source mapping ──────────────────────────────────────────────────────
+// index.html uses 'core'/'electrumx', app.js uses 'raven'/'electrumx'
+const LOG_SOURCE_MAP = { core: 'raven', raven: 'raven', electrumx: 'electrumx' };
+const LOG_EVENT_MAP = { raven: 'log_core', electrumx: 'log_electrumx' };
+
 // Socket.IO
 io.on('connection', (socket) => {
   console.log(`[Socket.IO] Client connected (${io.engine.clientsCount} total)`);
 
   // Subscribe to singleton data manager — broadcasts stats to this client
-  const unsubStats = dataManager.subscribe((stats) => {
-    socket.emit('stats', stats);
+  const unsubStats = dataManager.subscribe((stats, legacyStats) => {
+    socket.emit('stats', stats);           // for app.js
+    socket.emit('node_status', legacyStats); // for index.html
   });
 
   // Log streaming (file-based)
   const logUnsubs = {};
 
-  socket.on('subscribe-logs', (source) => {
+  function handleLogSubscribe(rawSource) {
+    const source = LOG_SOURCE_MAP[rawSource] || rawSource;
     const tailer = logTailers[source];
     if (!tailer) {
-      socket.emit('log', {
-        source,
-        lines: [`[No log file configured for ${source}. Set ${source === 'raven' ? 'RVN_LOG_FILE' : 'ELECTRUMX_LOG_FILE'} env var]`],
-      });
+      const legacyEvent = LOG_EVENT_MAP[source] || `log_${rawSource}`;
+      socket.emit('log', { source, lines: [`[No log file configured for ${source}]`] });
+      socket.emit(legacyEvent, `[No log file configured for ${source}]\n`);
       return;
     }
 
@@ -421,16 +456,26 @@ io.on('connection', (socket) => {
     if (logUnsubs[source]) return;
 
     logUnsubs[source] = tailer.subscribe((lines) => {
-      socket.emit('log', { source, lines });
+      const text = lines.join('\n') + '\n';
+      const legacyEvent = LOG_EVENT_MAP[source] || `log_${source}`;
+      socket.emit('log', { source, lines });   // for app.js
+      socket.emit(legacyEvent, text);           // for index.html
     });
-  });
+  }
 
-  socket.on('unsubscribe-logs', (source) => {
+  function handleLogUnsubscribe(rawSource) {
+    const source = LOG_SOURCE_MAP[rawSource] || rawSource;
     if (logUnsubs[source]) {
       logUnsubs[source]();
       delete logUnsubs[source];
     }
-  });
+  }
+
+  // Support both event naming conventions
+  socket.on('subscribe-logs', handleLogSubscribe);   // app.js style
+  socket.on('subscribe_logs', handleLogSubscribe);    // index.html style
+  socket.on('unsubscribe-logs', handleLogUnsubscribe);
+  socket.on('unsubscribe_logs', handleLogUnsubscribe);
 
   socket.on('disconnect', () => {
     unsubStats();
