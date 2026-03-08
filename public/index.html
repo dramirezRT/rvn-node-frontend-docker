@@ -185,13 +185,97 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 10px;
+    font-size: 13px;
     font-family: 'JetBrains Mono', monospace;
-    color: var(--rvn-text-muted);
+    color: #ffffff;
     letter-spacing: 1px;
     z-index: 10;
     background: linear-gradient(to top, rgba(5,5,8,0.97) 0%, rgba(5,5,8,0.7) 60%, transparent 100%);
     box-shadow: 0 -4px 40px rgba(56,77,157,0.08), 0 -2px 80px rgba(247,147,26,0.04);
+  }
+
+  /* ── Footer elements ── */
+  .footer-love {
+    font-size: 13px;
+    color: #ffffff;
+    opacity: 0.85;
+    letter-spacing: 0.5px;
+  }
+  .footer-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .footer-donate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+    position: relative;
+  }
+  .footer-donate:hover { opacity: 1; }
+  .donate-label { color: var(--rvn-orange); font-size: 12px; }
+  .donate-address {
+    color: #ffffff;
+    font-family: 'JetBrains Mono', monospace;
+    user-select: all;
+    font-size: 11px;
+  }
+  .donate-copied {
+    color: var(--rvn-orange);
+    font-size: 12px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.3s;
+    margin-left: 8px;
+  }
+  .donate-copied.show { opacity: 1; }
+
+  /* Ravencoin logo assembly animation */
+  .rvn-assembly {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  .rvn-shard {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    animation: rvnShardFly var(--dur) ease-out var(--delay) forwards;
+  }
+  .rvn-shard img { width: 100%; height: 100%; }
+  @keyframes rvnShardFly {
+    0% {
+      opacity: 0.8;
+      transform: translate(var(--sx), var(--sy)) rotate(var(--sr)) scale(0.4);
+    }
+    70% {
+      opacity: 1;
+      transform: translate(0, 0) rotate(0deg) scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: translate(0, 0) rotate(0deg) scale(1);
+    }
+  }
+  .rvn-assembled {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    opacity: 0;
+    animation: rvnAssembledShow 3s ease-in forwards;
+  }
+  .rvn-assembled img { width: 100%; height: 100%; }
+  @keyframes rvnAssembledShow {
+    0% { opacity: 0; transform: scale(1); }
+    35% { opacity: 0; transform: scale(1); }
+    45% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 12px #f79534); }
+    75% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 8px #f79534); }
+    85% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 20px #f79534); }
+    100% { opacity: 0; transform: scale(1.3) translateY(-20px); filter: none; }
   }
 
   .status-indicator {
@@ -435,7 +519,10 @@
     }
     .block-label { font-size: 9px; position: relative; top: auto; left: auto; transform: none; text-align: center; padding: 16px 0 8px; }
     .time-since { font-size: 12px; margin-bottom: 24px; }
-    .version-bar { padding: 10px 16px; position: relative; }
+    .version-bar { padding: 10px 16px; position: relative; flex-wrap: wrap; gap: 4px; }
+    .footer-love { font-size: 9px; order: 3; width: 100%; text-align: center; margin-top: 4px; }
+    .footer-donate { font-size: 8px; }
+    .donate-address { font-size: 7px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
   }
 </style>
 </head>
@@ -486,7 +573,16 @@
       </div>
     </div>
   </div>
-  <div id="lastUpdate"></div>
+  <!-- Made with love from Costa Rica 🇨🇷❤️ -->
+  <div class="footer-love">Made with ❤️ from Costa Rica 🇨🇷</div>
+  <div class="footer-right">
+    <!-- RVN donation/tip address -->
+    <div class="footer-donate" title="RVN donation address — click to copy">
+      <span class="donate-label">Tips:</span>
+      <span class="donate-address" id="donateAddress">RQXme1Es7mfnzGiQj62M51zMGbzB5FiQom</span>
+      <span class="donate-copied" id="donateCopied">Copied!</span>
+    </div>
+  </div>
 </div>
 
 <button class="panel-toggle" id="panelToggle" aria-label="Toggle log panel">
@@ -948,7 +1044,6 @@
     currentHeight = mockHeight;
     renderText(formatNumber(mockHeight), true);
     lastDataTime = Date.now();
-    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
     const h = Array.from({length: 64}, () => '0123456789abcdef'[Math.floor(Math.random()*16)]).join('');
     document.getElementById('statHash').textContent = h;
   }
@@ -1044,7 +1139,6 @@
         const parts = data.ipPort.split('/');
         document.getElementById('statAddress').textContent = parts.length === 2 ? parts[0] + ':' + parts[1] : data.ipPort;
       }
-      if (data.updatedAt) document.getElementById('lastUpdate').textContent = new Date(data.updatedAt).toLocaleTimeString();
     });
 
     socket.on('log_core', (text) => appendLog('log-core', text));
@@ -1111,6 +1205,87 @@
       }
     });
   });
+
+  // ── Donate address copy with fallback + confetti ──
+  function copyToClipboard(text) {
+    // Try modern API first, fall back to execCommand
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(() => execCommandCopy(text));
+    }
+    return execCommandCopy(text);
+  }
+
+  function execCommandCopy(text) {
+    return new Promise((resolve) => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      resolve();
+    });
+  }
+
+  // Ravencoin bird — geometric pieces that assemble into the logo
+  const RVN_LOGO_URL = '/rvn-logo.svg';
+
+  function spawnRvnConfetti(originEl) {
+    const rect = originEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top;
+    const logoW = 72;
+    const logoH = 120;
+    const shardCount = 8;
+
+    const container = document.createElement('div');
+    container.className = 'rvn-assembly';
+    container.style.left = (cx - logoW / 2) + 'px';
+    container.style.top = (cy - logoH - 15) + 'px';
+    container.style.width = logoW + 'px';
+    container.style.height = logoH + 'px';
+
+    // Shards: copies of the logo flying in from random directions, converging to center
+    for (let i = 0; i < shardCount; i++) {
+      const shard = document.createElement('div');
+      shard.className = 'rvn-shard';
+      const angle = (i / shardCount) * Math.PI * 2;
+      const dist = 120 + Math.random() * 80;
+      const sx = Math.cos(angle) * dist;
+      const sy = Math.sin(angle) * dist;
+      const sr = (Math.random() - 0.5) * 360;
+      const delay = i * 0.06;
+      const dur = 0.7 + Math.random() * 0.3;
+      shard.style.cssText = 'top:0;left:0;width:100%;height:100%;'
+        + '--sx:' + sx + 'px;--sy:' + sy + 'px;--sr:' + sr + 'deg;'
+        + '--delay:' + delay + 's;--dur:' + dur + 's;'
+        + 'opacity:0;';
+      shard.innerHTML = '<img src="' + RVN_LOGO_URL + '" alt="">';
+      container.appendChild(shard);
+    }
+
+    // Final assembled logo (appears after shards converge, then glows and fades)
+    const assembled = document.createElement('div');
+    assembled.className = 'rvn-assembled';
+    assembled.innerHTML = '<img src="' + RVN_LOGO_URL + '" alt="">';
+    container.appendChild(assembled);
+
+    document.body.appendChild(container);
+    setTimeout(() => container.remove(), 3500);
+  }
+
+  const donateEl = document.querySelector('.footer-donate');
+  if (donateEl) {
+    donateEl.addEventListener('click', () => {
+      copyToClipboard('RQXme1Es7mfnzGiQj62M51zMGbzB5FiQom').then(() => {
+        const copied = document.getElementById('donateCopied');
+        copied.classList.add('show');
+        spawnRvnConfetti(donateEl);
+        setTimeout(() => copied.classList.remove('show'), 2500);
+      });
+    });
+  }
 
   function appendLog(id, text) {
     const el = document.getElementById(id);
