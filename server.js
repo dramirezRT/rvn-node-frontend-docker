@@ -110,14 +110,13 @@ async function getNodeStats() {
     const now = Math.floor(Date.now() / 1000);
     const timeDiff = now - bestblock.time;
 
-    // Sum of peer ban scores (lower = better)
-    const totalBanScore = peerinfo.reduce((sum, p) => sum + (p.banscore || 0), 0);
-
-    // Node IP from localaddresses or first peer's addrlocal
+    // Node IP and score from localaddresses
     let nodeIP = null;
+    let nodeScore = 0;
     if (networkinfo.localaddresses && networkinfo.localaddresses.length > 0) {
       const la = networkinfo.localaddresses[0];
       nodeIP = `${la.address}:${la.port}`;
+      nodeScore = la.score || 0; // address advertisement score (how many peers know your address)
     } else {
       const withLocal = peerinfo.find((p) => p.addrlocal);
       if (withLocal) nodeIP = withLocal.addrlocal;
@@ -139,7 +138,7 @@ async function getNodeStats() {
       version: networkinfo.subversion,
       protocolVersion: networkinfo.protocolversion,
       nodeIP,
-      nodeScore: totalBanScore,
+      nodeScore,
       chain: chaininfo.chain,
       chainSize: chaininfo.size_on_disk,
       headers: chaininfo.headers,
