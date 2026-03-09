@@ -16,6 +16,61 @@ const zmq = require('zeromq');
 const fs = require('fs');
 const path = require('path');
 
+// ─── GeoIP Cache ─────────────────────────────────────────────────────────────
+
+const geoCache = {}; // ip -> { country, cc }
+
+function lookupGeoIP(ips) {
+  return new Promise((resolve) => {
+    const uncached = ips.filter(ip => ip && !geoCache[ip] && !ip.startsWith('127.') && ip !== '::1');
+    if (uncached.length === 0) return resolve();
+
+    const postData = JSON.stringify(
+      uncached.slice(0, 100).map(ip => ({ query: ip, fields: 'status,countryCode,country' }))
+    );
+    const options = {
+      hostname: 'ip-api.com',
+      path: '/batch',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+      timeout: 5000,
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const results = JSON.parse(data);
+          results.forEach((r, i) => {
+            if (r.status === 'success') {
+              geoCache[uncached[i]] = { country: r.country, cc: r.countryCode };
+            }
+          });
+        } catch (e) { /* ignore parse errors */ }
+        resolve();
+      });
+    });
+    req.on('error', () => resolve());
+    req.on('timeout', () => { req.destroy(); resolve(); });
+    req.write(postData);
+    req.end();
+  });
+}
+
+/** Extract bare IP from addr string like "1.2.3.4:8767" or "[::1]:8767" */
+function extractIP(addr) {
+  if (!addr) return '';
+  const m6 = addr.match(/^\[([^\]]+)\]:(\d+)$/);
+  if (m6) return m6[1];
+  const m4 = addr.match(/^(.+):(\d+)$/);
+  if (m4) return m4[1];
+  return addr;
+}
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -92,6 +147,24 @@ function rpcCall(method, params = []) {
 
 // ─── Data Fetcher ────────────────────────────────────────────────────────────
 
+async function enrichPeersWithGeo(peers) {
+  const ips = peers.map(p => extractIP(p.addr)).filter(Boolean);
+  await lookupGeoIP(ips);
+  return peers.map(p => {
+    const ip = extractIP(p.addr);
+    const geo = geoCache[ip];
+    return {
+      addr: p.addr,
+      subver: p.subver,
+      pingtime: p.pingtime,
+      synced_blocks: p.synced_blocks,
+      inbound: p.inbound,
+      countryCode: geo ? geo.cc : '',
+      country: geo ? geo.country : '',
+    };
+  });
+}
+
 async function getNodeStats() {
   try {
     const [blockcount, bestblockhash, networkinfo, peerinfo, mininginfo, chaininfo, nettotals] =
@@ -144,13 +217,7 @@ async function getNodeStats() {
       headers: chaininfo.headers,
       verificationProgress: chaininfo.verificationprogress,
       peerCount: peerinfo.length,
-      peers: peerinfo.slice(0, 20).map((p) => ({
-        addr: p.addr,
-        subver: p.subver,
-        pingtime: p.pingtime,
-        synced_blocks: p.synced_blocks,
-        inbound: p.inbound,
-      })),
+      peers: await enrichPeersWithGeo(peerinfo.slice(0, 30)),
       netTotals: nettotals
         ? { received: nettotals.totalbytesrecv, sent: nettotals.totalbytessent }
         : null,
@@ -210,6 +277,7 @@ class NodeDataManager {
       connections: s.connections,
       chain: s.chain,
       chainSize: s.chainSize,
+      peerDetails: s.peers || [],
     };
   }
 
