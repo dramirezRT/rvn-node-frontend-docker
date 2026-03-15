@@ -778,15 +778,12 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: auto;
-  height: auto;
   pointer-events: none;
-  z-index: 1;
+  z-index: 10;
   opacity: 0;
   transition: opacity 0.1s ease-out;
-  /* Flip and tilt to cast shadow forward on floor */
-  transform: translate(-50%, calc(-60% + 100%)) scaleY(-1) perspective(400px) rotateX(55deg);
   transform-origin: top center;
+  transform: translate(-50%, -30%) perspective(350px) rotateX(72deg);
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -1717,39 +1714,37 @@ const _floorCtx    = _floorCanvas ? _floorCanvas.getContext('2d') : null;
 function drawFloorShadow() {
   if (!_floorCtx || !_blockCanvas) return;
 
-  const srcW = _blockCanvas.width;
-  const srcH = _blockCanvas.height;
-  const dpr = window.devicePixelRatio || 1;
-  const cssSrcW = _blockCanvas.offsetWidth || Math.round(srcW / dpr);
-  const cssSrcH = _blockCanvas.offsetHeight || Math.round(srcH / dpr);
+  const srcW  = _blockCanvas.width;
+  const srcH  = _blockCanvas.height;
+  const dpr   = window.devicePixelRatio || 1;
+  const cssW  = _blockCanvas.offsetWidth  || Math.round(srcW / dpr);
+  const cssH  = _blockCanvas.offsetHeight || Math.round(srcH / dpr);
 
-  // Shadow canvas: same width, 60% height (CSS transform handles perspective)
-  const shadowH = Math.round(srcH * 0.6);
-  _floorCanvas.width = srcW;
-  _floorCanvas.height = shadowH;
-  _floorCanvas.style.width = cssSrcW + 'px';
-  _floorCanvas.style.height = Math.round(cssSrcH * 0.6) + 'px';
+  // Shadow canvas: same width, full height (rotateX handles visual foreshortening)
+  _floorCanvas.width        = srcW;
+  _floorCanvas.height       = srcH;
+  _floorCanvas.style.width  = cssW + 'px';
+  _floorCanvas.style.height = cssH + 'px';
 
-  _floorCtx.clearRect(0, 0, _floorCanvas.width, _floorCanvas.height);
+  _floorCtx.clearRect(0, 0, srcW, srcH);
 
-  // Draw the full block canvas - digits are in the lower portion
+  // Draw digits (same orientation — CSS rotateX makes it lie flat)
   _floorCtx.drawImage(_blockCanvas, 0, 0);
 
-  // Apply gradient mask: solid at top (near numbers), transparent at bottom (toward viewer)
-  // After CSS scaleY(-1), canvas top = near numbers, canvas bottom = toward viewer
-  const fadeMask = _floorCtx.createLinearGradient(0, 0, 0, _floorCanvas.height);
-  fadeMask.addColorStop(0,    'rgba(0,0,0,1)');   // near numbers: fully opaque
-  fadeMask.addColorStop(0.5,  'rgba(0,0,0,0.5)'); // middle: half visible
-  fadeMask.addColorStop(1,    'rgba(0,0,0,0)');   // toward viewer: fully transparent
-  _floorCtx.globalCompositeOperation = 'destination-in';
-  _floorCtx.fillStyle = fadeMask;
-  _floorCtx.fillRect(0, 0, _floorCanvas.width, _floorCanvas.height);
-
-  // Colorize: dark warm tint using source-in (keeps alpha, replaces color)
+  // Crush to solid black silhouette
   _floorCtx.globalCompositeOperation = 'source-in';
-  _floorCtx.fillStyle = 'rgba(20,10,0,1)';
-  _floorCtx.fillRect(0, 0, _floorCanvas.width, _floorCanvas.height);
+  _floorCtx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+  _floorCtx.fillRect(0, 0, srcW, srcH);
+  _floorCtx.globalCompositeOperation = 'source-over';
 
+  // Fade: opaque at top (near numbers), transparent at bottom (far from numbers)
+  const fade = _floorCtx.createLinearGradient(0, 0, 0, srcH);
+  fade.addColorStop(0,    'rgba(0,0,0,0)');   // top = solid (near numbers)
+  fade.addColorStop(0.6,  'rgba(0,0,0,0)');   // still solid
+  fade.addColorStop(1,    'rgba(0,0,0,1)');   // bottom = erased
+  _floorCtx.globalCompositeOperation = 'destination-out';
+  _floorCtx.fillStyle = fade;
+  _floorCtx.fillRect(0, 0, srcW, srcH);
   _floorCtx.globalCompositeOperation = 'source-over';
 }
 const ANIM_DURATION = 5000;
