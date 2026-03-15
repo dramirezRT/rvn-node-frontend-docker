@@ -748,20 +748,14 @@
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   background:
-    radial-gradient(ellipse 35% 22% at 50% 8%,
+    radial-gradient(ellipse 50% 35% at 50% 14%,
       rgba(255,200,80,0.95)  0%,
       rgba(230,150,20,0.70) 25%,
       rgba(180,100,10,0.35) 55%,
       rgba(100,50,0,0.10)   80%,
       transparent            100%);
-  opacity: 0;
-}
-/* Barn-door guides — directed spotlight effect */
-#barn-doors {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
+  mask-image: linear-gradient(to bottom, transparent 0%, transparent 12%, black 12%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent 12%, black 12%, black 100%);
   opacity: 0;
 }
 /* Dark tunnel vignette — on top of everything, nearly black at sides */
@@ -817,7 +811,6 @@
 <div class="block-label">Block Height</div>
 <canvas id="block-canvas"></canvas>
 <canvas id="floor-shadow"></canvas>
-<canvas id="barn-doors"></canvas>
 <!-- Vignette sits above numbers, below UI panels -->
 <div id="vignette" aria-hidden="true"></div>
 
@@ -1783,93 +1776,6 @@ function _shadowLoop() {
 }
 requestAnimationFrame(_shadowLoop);
 
-// ── Barn doors ───────────────────────────────────────────────────────────────
-const _barnCanvas = document.getElementById('barn-doors');
-const _barnCtx    = _barnCanvas ? _barnCanvas.getContext('2d') : null;
-
-function drawBarnDoors(alpha) {
-  const dpr    = window.devicePixelRatio || 1;
-  const W      = window.innerWidth;
-  const H      = window.innerHeight;
-
-  if (_barnCanvas.width !== Math.round(W * dpr)) {
-    _barnCanvas.width  = Math.round(W * dpr);
-    _barnCanvas.height = Math.round(H * dpr);
-    _barnCanvas.style.width  = W + 'px';
-    _barnCanvas.style.height = H + 'px';
-  }
-
-  _barnCtx.clearRect(0, 0, W * dpr, H * dpr);
-  _barnCtx.save();
-  _barnCtx.scale(dpr, dpr);
-
-  const blockRect = _blockCanvas.getBoundingClientRect();
-  const lightX  = W * 0.50;
-  const lightY  = H * 0.08;
-
-  // The cone edges meet the number canvas at its top edge, left and right
-  const coneLeftX  = blockRect.left;
-  const coneRightX = blockRect.right;
-  const coneStopY  = blockRect.top;   // cone stops here; vertical walls continue down
-
-  const darkAlpha = (alpha * 0.90).toFixed(3);
-  const softPx = 80;  // feather width in px at the cone edges
-
-  // ── LEFT dark zone ─────────────────────────────────────────────────────────
-  // Triangle above: light source → top-left edge of viewport → coneLeftX,coneStopY
-  _barnCtx.fillStyle = `rgba(0,0,0,${darkAlpha})`;
-  _barnCtx.beginPath();
-  _barnCtx.moveTo(lightX, lightY);
-  _barnCtx.lineTo(0, lightY);
-  _barnCtx.lineTo(0, H);
-  _barnCtx.lineTo(coneLeftX, H);
-  _barnCtx.lineTo(coneLeftX, coneStopY);
-  _barnCtx.closePath();
-  _barnCtx.fill();
-
-  // Soft feather at left cone edge (gradient strip from coneLeftX-softPx to coneLeftX+softPx)
-  const gradL = _barnCtx.createLinearGradient(coneLeftX - softPx, 0, coneLeftX + softPx, 0);
-  gradL.addColorStop(0,   `rgba(0,0,0,${darkAlpha})`);
-  gradL.addColorStop(0.5, `rgba(0,0,0,${darkAlpha})`);
-  gradL.addColorStop(1,   'rgba(0,0,0,0)');
-  _barnCtx.fillStyle = gradL;
-  _barnCtx.beginPath();
-  _barnCtx.moveTo(lightX, lightY);
-  _barnCtx.lineTo(coneLeftX - softPx, coneStopY);
-  _barnCtx.lineTo(coneLeftX + softPx, coneStopY);
-  _barnCtx.closePath();
-  _barnCtx.fill();
-
-  // ── RIGHT dark zone ────────────────────────────────────────────────────────
-  _barnCtx.fillStyle = `rgba(0,0,0,${darkAlpha})`;
-  _barnCtx.beginPath();
-  _barnCtx.moveTo(lightX, lightY);
-  _barnCtx.lineTo(W, lightY);
-  _barnCtx.lineTo(W, H);
-  _barnCtx.lineTo(coneRightX, H);
-  _barnCtx.lineTo(coneRightX, coneStopY);
-  _barnCtx.closePath();
-  _barnCtx.fill();
-
-  // Soft feather at right cone edge
-  const gradR = _barnCtx.createLinearGradient(coneRightX - softPx, 0, coneRightX + softPx, 0);
-  gradR.addColorStop(0,   'rgba(0,0,0,0)');
-  gradR.addColorStop(0.5, `rgba(0,0,0,${darkAlpha})`);
-  gradR.addColorStop(1,   `rgba(0,0,0,${darkAlpha})`);
-  _barnCtx.fillStyle = gradR;
-  _barnCtx.beginPath();
-  _barnCtx.moveTo(lightX, lightY);
-  _barnCtx.lineTo(coneRightX - softPx, coneStopY);
-  _barnCtx.lineTo(coneRightX + softPx, coneStopY);
-  _barnCtx.closePath();
-  _barnCtx.fill();
-
-  // ── TOP dark zone (above light source) ────────────────────────────────────
-  _barnCtx.fillStyle = `rgba(0,0,0,${darkAlpha})`;
-  _barnCtx.fillRect(0, 0, W, lightY);
-
-  _barnCtx.restore();
-}
 
 const ANIM_DURATION = 5000;
 let _animFrame = null;
@@ -1890,16 +1796,6 @@ function _animateLight(ts) {
   if (_blockCanvas) _blockCanvas.style.filter = alpha > 0.01 ? `brightness(${(1 - alpha * 0.85).toFixed(3)})` : '';
   // Floor brightens with animation
   _floorAnimAlpha = alpha;
-  // Barn doors
-  if (_barnCanvas) {
-    if (alpha > 0.01) {
-      _barnCanvas.style.opacity = '1';
-      drawBarnDoors(alpha);
-    } else {
-      _barnCanvas.style.opacity = '0';
-      if (_barnCtx) _barnCtx.clearRect(0, 0, _barnCanvas.width, _barnCanvas.height);
-    }
-  }
   if (p < 1) {
     _animFrame = requestAnimationFrame(_animateLight);
   } else {
@@ -1908,8 +1804,6 @@ function _animateLight(ts) {
     if (_overlay) _overlay.style.opacity = '0';
     if (_blockCanvas) _blockCanvas.style.filter = '';
     _floorAnimAlpha = 0;
-    if (_barnCanvas) { _barnCanvas.style.opacity = '0'; }
-    if (_barnCtx) _barnCtx.clearRect(0, 0, _barnCanvas.width, _barnCanvas.height);
     _animFrame = null;
   }
 }
