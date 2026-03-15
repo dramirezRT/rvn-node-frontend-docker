@@ -743,16 +743,16 @@
   z-index: 0;
   opacity: 0;
 }
-/* Warm tunnel glow — sits behind the numbers — dimmed */
+/* Warm tunnel glow — sits behind the numbers */
 #whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   background:
-    radial-gradient(ellipse 5% 4% at 50% 42%,
-      rgba(255,255,255,0.55)  0%,
-      rgba(255,210,100,0.35) 22%,
-      rgba(200,120,10,0.18)  50%,
-      rgba(120,60,0,0.07)   80%,
+    radial-gradient(ellipse 7% 5% at 50% 42%,
+      rgba(255,255,255,0.85)  0%,
+      rgba(255,220,120,0.60) 20%,
+      rgba(220,130,15,0.30)  45%,
+      rgba(140,65,0,0.10)   75%,
       transparent            100%);
   mix-blend-mode: screen;
   opacity: 0;
@@ -1843,23 +1843,37 @@ function drawLightRays(alpha) {
   const step = Math.max(1, Math.floor(edgePts.length / 80));
   const sampled = edgePts.filter((_, i) => i % step === 0);
 
-  // Floor baseline Y: top of the floor canvas
+  // Light source position — same as #whiteLight center (50% x, 42% y of viewport)
+  const lightX = W * 0.50;
+  const lightY = H * 0.42;
+
+  // Floor top Y — where the reflection starts
   const floorTopY = floorRect.top;
-  const floorCenterX = floorRect.left + floorRect.width / 2;
 
   _raysCtx.save();
-  _raysCtx.globalAlpha = alpha * 0.55;   // rays fade with overall animation alpha
-  _raysCtx.lineWidth = 0.8;
+  _raysCtx.globalAlpha = alpha * 0.55;
+  _raysCtx.lineWidth = 0.9;
 
   for (const { sx, sy } of sampled) {
-    // Mirror X across the floor center so the ray hits the reflection correctly
-    const fx = floorCenterX + (sx - floorCenterX);   // same X (floor same width as digits)
-    const fy = floorTopY + (floorRect.height * 0.15); // land at ~15% into the floor reflection
+    // Direction vector: from light source through the edge pixel
+    const dx = sx - lightX;
+    const dy = sy - lightY;
 
+    // Extend this ray until it hits floorTopY (floor surface)
+    // Parametric: lightY + t*dy = floorTopY  =>  t = (floorTopY - lightY) / dy
+    if (dy <= 0) continue;  // ray going upward — skip (only cast downward to floor)
+    const t = (floorTopY - lightY) / dy;
+    const fx = lightX + t * dx;
+    const fy = floorTopY;
+
+    // Only draw if floor endpoint is reasonably within the floor rect
+    if (fx < floorRect.left - 60 || fx > floorRect.right + 60) continue;
+
+    // Ray: from edge pixel onward to floor (not from light source, to keep it tight)
     const grad = _raysCtx.createLinearGradient(sx, sy, fx, fy);
-    grad.addColorStop(0,   'rgba(255, 200, 80, 0.55)');  // bright amber at digit contour
-    grad.addColorStop(0.5, 'rgba(200, 130, 20, 0.20)');
-    grad.addColorStop(1,   'rgba(150,  80,  0, 0.0)');   // fade to transparent at floor
+    grad.addColorStop(0,   'rgba(255, 200, 80, 0.50)');  // amber at digit edge
+    grad.addColorStop(0.5, 'rgba(220, 140, 20, 0.18)');
+    grad.addColorStop(1,   'rgba(160,  90,  0, 0.0)');   // transparent at floor
 
     _raysCtx.strokeStyle = grad;
     _raysCtx.beginPath();
