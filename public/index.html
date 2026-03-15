@@ -789,8 +789,8 @@
   z-index: 10;
   opacity: 0.85;
   transform-origin: top center;
-  transform: perspective(500px) rotateX(60deg);
-  filter: blur(3px);
+  transform: perspective(600px) rotateX(40deg);
+  filter: blur(2px);
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -1727,8 +1727,8 @@ function drawFloorShadow() {
   const srcH = _blockCanvas.height;
   const cssW = Math.round(srcW / dpr);
   const cssH = Math.round(srcH / dpr);
-  const shH  = Math.round(srcH * 0.6);          // shadow canvas = 60% the height of digits
-  const cssShH = Math.round(cssH * 0.6);
+  const shH  = Math.round(srcH * 0.45);          // shadow canvas = 45% the height of digits
+  const cssShH = Math.round(cssH * 0.45);
 
   // Size the canvas
   if (_floorCanvas.width !== srcW || _floorCanvas.height !== shH) {
@@ -1741,7 +1741,7 @@ function drawFloorShadow() {
   // Position: snapped to bottom edge of block-canvas in screen coords
   const rect = _blockCanvas.getBoundingClientRect();
   _floorCanvas.style.left = rect.left + 'px';
-  _floorCanvas.style.top  = (rect.bottom - 4) + 'px';   // 4px overlap so no gap at baseline
+  _floorCanvas.style.top  = (rect.bottom - 10) + 'px';   // tighter overlap, floor starts at digit feet
 
   _floorCtx.clearRect(0, 0, srcW, shH);
 
@@ -1867,19 +1867,33 @@ function drawLightRays(alpha) {
     const fy = floorTopY;
 
     // Only draw if floor endpoint is reasonably within the floor rect
-    if (fx < floorRect.left - 60 || fx > floorRect.right + 60) continue;
+    if (fx < floorRect.left - 80 || fx > floorRect.right + 80) continue;
 
-    // Ray: from edge pixel onward to floor (not from light source, to keep it tight)
-    const grad = _raysCtx.createLinearGradient(sx, sy, fx, fy);
-    grad.addColorStop(0,   'rgba(255, 200, 80, 0.50)');  // amber at digit edge
-    grad.addColorStop(0.5, 'rgba(220, 140, 20, 0.18)');
-    grad.addColorStop(1,   'rgba(160,  90,  0, 0.0)');   // transparent at floor
-
-    _raysCtx.strokeStyle = grad;
+    // Ray: from edge pixel onward to floor (projects the shadow contour)
+    const rayGrad = _raysCtx.createLinearGradient(sx, sy, fx, fy);
+    rayGrad.addColorStop(0,   `rgba(255, 200, 80, ${(alpha * 0.45).toFixed(3)})`);
+    rayGrad.addColorStop(0.6, `rgba(200, 130, 20, ${(alpha * 0.15).toFixed(3)})`);
+    rayGrad.addColorStop(1,   'rgba(150, 80, 0, 0)');
+    _raysCtx.globalAlpha = 1;
+    _raysCtx.strokeStyle = rayGrad;
     _raysCtx.beginPath();
     _raysCtx.moveTo(sx, sy);
     _raysCtx.lineTo(fx, fy);
     _raysCtx.stroke();
+
+    // Rim glow: short bright stroke toward light source (back-face lit edge)
+    const rimLen = 8;
+    const mag = Math.sqrt(dx*dx + dy*dy) || 1;
+    const rx = sx - (dx/mag) * rimLen;
+    const ry = sy - (dy/mag) * rimLen;
+    _raysCtx.globalAlpha = alpha * 0.5;
+    _raysCtx.strokeStyle = 'rgba(255, 220, 100, 0.4)';
+    _raysCtx.lineWidth = 1.5;
+    _raysCtx.beginPath();
+    _raysCtx.moveTo(sx, sy);
+    _raysCtx.lineTo(rx, ry);
+    _raysCtx.stroke();
+    _raysCtx.lineWidth = 0.9;
   }
 
   _raysCtx.restore();
