@@ -1803,13 +1803,10 @@ const _barnCanvas = document.getElementById('barn-doors');
 const _barnCtx    = _barnCanvas ? _barnCanvas.getContext('2d') : null;
 
 function drawBarnDoors(alpha) {
-  if (!_barnCtx || !_blockCanvas) return;
-
   const dpr    = window.devicePixelRatio || 1;
   const W      = window.innerWidth;
   const H      = window.innerHeight;
 
-  // Resize to fullscreen
   if (_barnCanvas.width !== Math.round(W * dpr)) {
     _barnCanvas.width  = Math.round(W * dpr);
     _barnCanvas.height = Math.round(H * dpr);
@@ -1821,37 +1818,57 @@ function drawBarnDoors(alpha) {
   _barnCtx.save();
   _barnCtx.scale(dpr, dpr);
 
-  // Get block canvas position at runtime
   const blockRect = _blockCanvas.getBoundingClientRect();
-
-  // Light source point = (50% of viewport width, 30% of viewport height)
-  const lightX = W * 0.50;
-  const lightY = H * 0.30;
-
-  // Left edge of numbers, right edge of numbers
+  const lightX  = W * 0.50;
+  const lightY  = H * 0.30;
   const leftEdge  = blockRect.left;
   const rightEdge = blockRect.right;
-  const bottomY   = blockRect.bottom;
 
-  // Fill color: dark, fades with animation
-  const fillAlpha = alpha * 0.82;
+  // Extend cone all the way to bottom of viewport
+  const coneBottom = H;
 
-  // Draw LEFT polygon: from light source, down-left to (0, bottomY), across to (leftEdge, bottomY), back to light
-  _barnCtx.fillStyle = `rgba(0, 0, 0, ${fillAlpha})`;
+  // Extend the cone edges to the bottom of viewport using the same angle from light source
+  const dxL = leftEdge  - lightX;
+  const dyL = blockRect.top - lightY;   // direction to top-left of numbers
+  const tL  = (coneBottom - lightY) / (blockRect.bottom - lightY) * (blockRect.bottom - lightY) / (blockRect.bottom - lightY);
+  // Simpler: project left/right cone edges to y=coneBottom
+  const tLeft  = (coneBottom - lightY) / (blockRect.top - lightY || 1);
+  const tRight = tLeft;
+  const coneLeftX  = lightX + (leftEdge  - lightX) * ((coneBottom - lightY) / (blockRect.top - lightY || 1));
+  const coneRightX = lightX + (rightEdge - lightX) * ((coneBottom - lightY) / (blockRect.top - lightY || 1));
+
+  // LEFT dark zone: everything to the left of the cone edge
+  // Use a gradient for soft feathering at the cone boundary
+  const gradL = _barnCtx.createLinearGradient(coneLeftX - 60, 0, coneLeftX + 60, 0);
+  gradL.addColorStop(0,   `rgba(0,0,0,${(alpha * 0.88).toFixed(3)})`);
+  gradL.addColorStop(0.6, `rgba(0,0,0,${(alpha * 0.88).toFixed(3)})`);
+  gradL.addColorStop(1,   'rgba(0,0,0,0)');
+  _barnCtx.fillStyle = gradL;
   _barnCtx.beginPath();
   _barnCtx.moveTo(lightX, lightY);
-  _barnCtx.lineTo(0, bottomY);
-  _barnCtx.lineTo(leftEdge, bottomY);
+  _barnCtx.lineTo(0, lightY);
+  _barnCtx.lineTo(0, coneBottom);
+  _barnCtx.lineTo(coneLeftX + 60, coneBottom);
   _barnCtx.closePath();
   _barnCtx.fill();
 
-  // Draw RIGHT polygon: from light source, down-right to (W, bottomY), across to (rightEdge, bottomY), back to light
+  // RIGHT dark zone: everything to the right of the cone edge
+  const gradR = _barnCtx.createLinearGradient(coneRightX - 60, 0, coneRightX + 60, 0);
+  gradR.addColorStop(0,   'rgba(0,0,0,0)');
+  gradR.addColorStop(0.4, `rgba(0,0,0,${(alpha * 0.88).toFixed(3)})`);
+  gradR.addColorStop(1,   `rgba(0,0,0,${(alpha * 0.88).toFixed(3)})`);
+  _barnCtx.fillStyle = gradR;
   _barnCtx.beginPath();
   _barnCtx.moveTo(lightX, lightY);
-  _barnCtx.lineTo(W, bottomY);
-  _barnCtx.lineTo(rightEdge, bottomY);
+  _barnCtx.lineTo(W, lightY);
+  _barnCtx.lineTo(W, coneBottom);
+  _barnCtx.lineTo(coneRightX - 60, coneBottom);
   _barnCtx.closePath();
   _barnCtx.fill();
+
+  // TOP dark zone: everything above the light source
+  _barnCtx.fillStyle = `rgba(0,0,0,${(alpha * 0.88).toFixed(3)})`;
+  _barnCtx.fillRect(0, 0, W, lightY);
 
   _barnCtx.restore();
 }
