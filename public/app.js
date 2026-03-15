@@ -449,6 +449,16 @@ document.addEventListener('keydown', (e) => {
     return a;
   });
 
+  // Audio unlock on first user interaction
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    audioPool.forEach(s => { s.volume = 0; s.play().catch(()=>{}); s.pause(); s.currentTime = 0; s.volume = 1; });
+  }
+  document.addEventListener('click', unlockAudio, { once: true });
+  document.addEventListener('keydown', unlockAudio, { once: true });
+
   let lastPlayedIdx = -1;
 
   function playRandomSound() {

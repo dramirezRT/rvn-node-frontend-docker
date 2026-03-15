@@ -691,18 +691,19 @@
 
 <!-- ─── Block Sound Notification Styles ─── -->
 <style>
-/* Sound toggle panel */
+/* Sound toggle panel (floating pill) */
 #soundPanel {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 16px; right: 16px;
   z-index: 1000;
   display: flex;
-  justify-content: flex-end;
-  padding: 6px 14px;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid rgba(232,160,0,0.15);
-  pointer-events: none;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(20,20,20,0.85);
+  backdrop-filter: blur(8px);
+  border-radius: 999px;
+  border: 1px solid rgba(247,147,26,0.25);
+  pointer-events: all;
 }
 #soundPanelInner {
   display: flex;
@@ -710,14 +711,14 @@
   gap: 8px;
   pointer-events: all;
 }
-#soundIcon { font-size: 14px; line-height: 1; }
 #soundLabel { font-size: 11px; color: #aaa; letter-spacing: 0.04em; }
 .sound-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
 .sound-toggle input { opacity: 0; width: 0; height: 0; }
 .sound-slider {
   position: absolute; inset: 0;
   background: #333; border-radius: 20px; cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid rgba(247,147,26,0.25);
 }
 .sound-slider:before {
   content: ""; position: absolute;
@@ -725,7 +726,11 @@
   left: 3px; top: 3px;
   background: #666; transition: transform 0.2s, background 0.2s;
 }
-.sound-toggle input:checked + .sound-slider { background: rgba(232,160,0,0.25); }
+.sound-toggle input:checked + .sound-slider {
+  background: rgba(232,160,0,0.25);
+  border-color: #f59e0b;
+  box-shadow: 0 0 12px #f59e0b;
+}
 .sound-toggle input:checked + .sound-slider:before {
   transform: translateX(16px);
   background: #e8a000;
@@ -737,7 +742,6 @@
   pointer-events: none;
   z-index: 500;
   opacity: 0;
-  mix-blend-mode: screen;
 }
 #tunnelCanvas {
   position: absolute; inset: 0;
@@ -745,12 +749,19 @@
 }
 #ravenImg {
   position: absolute;
-  width: 240px; height: auto;
+  width: 300px; height: auto;
   top: 50%; left: 50%;
-  transform: translate(-50%, -60%);
+  transform: translate(-50%, -50%);
   mix-blend-mode: screen;
   filter: brightness(2) saturate(0.8);
   opacity: 0;
+  animation: ravenFade 5000ms ease-in-out forwards;
+}
+@keyframes ravenFade {
+  0% { opacity: 0; }
+  25% { opacity: 0.85; }
+  65% { opacity: 0.85; }
+  100% { opacity: 0; }
 }
 </style>
 </head>
@@ -759,8 +770,7 @@
 <!-- Sound toggle panel -->
 <div id="soundPanel">
   <div id="soundPanelInner">
-    <span id="soundIcon">🔔</span>
-    <span id="soundLabel">Block sounds</span>
+    <span id="soundLabel">Enable sounds</span>
     <label class="sound-toggle">
       <input type="checkbox" id="soundToggle" checked>
       <span class="sound-slider"></span>
