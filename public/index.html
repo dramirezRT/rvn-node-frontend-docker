@@ -746,8 +746,14 @@
 #whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  background: radial-gradient(ellipse 18% 14% at 50% 42%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.5) 40%, rgba(255,255,255,0.1) 65%, transparent 80%);
+  background: radial-gradient(ellipse 12% 10% at 50% 42%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 35%, rgba(255,255,255,0.08) 65%, transparent 78%);
   mix-blend-mode: screen;
+  opacity: 0;
+}
+#vignette {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(ellipse 55% 50% at 50% 42%, transparent 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.82) 75%, rgba(0,0,0,0.96) 100%);
   opacity: 0;
 }
 #block-canvas {
@@ -773,6 +779,7 @@
 
 <!-- Block notification overlay (white light effect) -->
 <div id="blockOverlay" aria-hidden="true">
+  <div id="vignette"></div>
   <div id="whiteLight"></div>
   <canvas id="tunnelCanvas"></canvas>
   <img id="ravenImg" src="raven.png" alt="">
@@ -1671,6 +1678,7 @@ function playRandomSound() {
 // White light animation
 const _overlay = document.getElementById('blockOverlay');
 const _whiteLight = document.getElementById('whiteLight');
+const _vignette = document.getElementById('vignette');
 const _blockCanvas = document.getElementById('block-canvas');
 const ANIM_DURATION = 5000;
 let _animFrame = null;
@@ -1685,6 +1693,7 @@ function _animateLight(ts) {
   else              alpha = 1.0 - (p - 0.6) / 0.4;
   alpha = Math.max(0, Math.min(1, alpha));
   if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
+  if (_vignette) _vignette.style.opacity = alpha.toFixed(3);
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
   // Shadow on block digits — light from behind casts shadow toward viewer
   if (_blockCanvas) {
@@ -1698,6 +1707,7 @@ function _animateLight(ts) {
     _animFrame = requestAnimationFrame(_animateLight);
   } else {
     if (_whiteLight) _whiteLight.style.opacity = '0';
+    if (_vignette) _vignette.style.opacity = '0';
     if (_overlay) _overlay.style.opacity = '0';
     if (_blockCanvas) _blockCanvas.style.filter = '';
     _animFrame = null;
