@@ -740,18 +740,18 @@
 #blockOverlay {
   position: fixed; inset: 0;
   pointer-events: none;
-  z-index: 500;
+  z-index: 0;
   opacity: 0;
 }
 #whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  background: radial-gradient(ellipse 45% 38% at 50% 42%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.12) 60%, transparent 75%);
+  background: radial-gradient(ellipse 18% 14% at 50% 42%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.5) 40%, rgba(255,255,255,0.1) 65%, transparent 80%);
   mix-blend-mode: screen;
   opacity: 0;
 }
 #block-canvas {
-  transition: filter 0.15s ease-out;
+  transition: filter 0.1s ease-out;
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -1688,11 +1688,10 @@ function _animateLight(ts) {
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
   // Shadow on block digits — light from behind casts shadow toward viewer
   if (_blockCanvas) {
-    const blur = Math.round(alpha * 18);
-    const offset = Math.round(alpha * 8);
-    const shadowAlpha = (alpha * 0.85).toFixed(2);
+    const blur = Math.round(alpha * 32);
+    const offset = Math.round(alpha * 14);
     _blockCanvas.style.filter = alpha > 0.01
-      ? `drop-shadow(${offset}px ${offset}px ${blur}px rgba(0,0,0,${shadowAlpha}))`
+      ? `drop-shadow(${offset}px ${offset}px ${blur}px rgba(0,0,0,1))`
       : '';
   }
   if (p < 1) {
