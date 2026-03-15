@@ -747,13 +747,13 @@
 #whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  /* tiny bright core ~8% wide (fraction of the block digit width), warm amber halo spreading out */
   background:
     radial-gradient(ellipse 8% 6% at 50% 42%,
       rgba(255,255,255,1)    0%,
-      rgba(255,220,120,0.9) 25%,
-      rgba(230,140,20,0.55) 55%,
-      rgba(180,90,0,0.2)   80%,
+      rgba(255,220,120,0.9) 18%,
+      rgba(230,140,20,0.6)  40%,
+      rgba(200,100,10,0.35) 65%,
+      rgba(120,50,0,0.15)  85%,
       transparent           100%);
   mix-blend-mode: screen;
   opacity: 0;
@@ -773,6 +773,16 @@
 }
 #block-canvas {
   transition: filter 0.1s ease-out;
+}
+#floor-shadow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%) translateY(100%);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.1s ease-out;
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -801,6 +811,7 @@
 
 <div class="block-label">Block Height</div>
 <canvas id="block-canvas"></canvas>
+<canvas id="floor-shadow"></canvas>
 <!-- Vignette sits above numbers, below UI panels -->
 <div id="vignette" aria-hidden="true"></div>
 
@@ -1692,10 +1703,54 @@ function playRandomSound() {
 }
 
 // White light animation
-const _overlay = document.getElementById('blockOverlay');
+const _overlay   = document.getElementById('blockOverlay');
 const _whiteLight = document.getElementById('whiteLight');
-const _vignette = document.getElementById('vignette');
+const _vignette   = document.getElementById('vignette');
 const _blockCanvas = document.getElementById('block-canvas');
+const _floorCanvas = document.getElementById('floor-shadow');
+const _floorCtx    = _floorCanvas ? _floorCanvas.getContext('2d') : null;
+
+// Draw perspective floor shadow from the main block canvas
+function drawFloorShadow() {
+  if (!_floorCtx || !_blockCanvas) return;
+  const w = _blockCanvas.width;
+  const h = _blockCanvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = _blockCanvas.offsetWidth  || Math.round(w / dpr);
+  const cssH = _blockCanvas.offsetHeight || Math.round(h / dpr);
+
+  _floorCanvas.width  = w;
+  _floorCanvas.height = Math.round(h * 0.45); // floor depth = 45% of canvas height
+  _floorCanvas.style.width  = cssW + 'px';
+  _floorCanvas.style.height = Math.round(cssH * 0.45) + 'px';
+
+  _floorCtx.clearRect(0, 0, _floorCanvas.width, _floorCanvas.height);
+
+  // Draw the block canvas flipped & squashed vertically (perspective projection)
+  _floorCtx.save();
+  _floorCtx.translate(0, 0);
+  _floorCtx.scale(1, -0.45); // flip + squash
+  _floorCtx.drawImage(_blockCanvas, 0, -h); // flip upward into view
+  _floorCtx.restore();
+
+  // Fade out from top (near) to bottom (far) — near numbers = darker shadow
+  const fade = _floorCtx.createLinearGradient(0, 0, 0, _floorCanvas.height);
+  fade.addColorStop(0,   'rgba(0,0,0,0)');   // near edge (touching numbers) = transparent
+  fade.addColorStop(0.4, 'rgba(0,0,0,0.6)'); // mid
+  fade.addColorStop(1,   'rgba(0,0,0,1)');   // far edge = fully masked
+  _floorCtx.globalCompositeOperation = 'destination-out';
+  _floorCtx.fillStyle = fade;
+  _floorCtx.fillRect(0, 0, _floorCanvas.width, _floorCanvas.height);
+  _floorCtx.globalCompositeOperation = 'source-over';
+
+  // Tint the shadow amber/dark
+  _floorCtx.globalAlpha = 0.35;
+  _floorCtx.globalCompositeOperation = 'multiply';
+  _floorCtx.fillStyle = 'rgba(80,40,0,1)';
+  _floorCtx.fillRect(0, 0, _floorCanvas.width, _floorCanvas.height);
+  _floorCtx.globalCompositeOperation = 'source-over';
+  _floorCtx.globalAlpha = 1;
+}
 const ANIM_DURATION = 5000;
 let _animFrame = null;
 let _animStart = null;
@@ -1711,20 +1766,25 @@ function _animateLight(ts) {
   if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
   if (_vignette) _vignette.style.opacity = alpha.toFixed(3);
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
-  // Shadow on block digits — light from behind casts shadow toward viewer
-  if (_blockCanvas) {
-    const blur = Math.round(alpha * 32);
-    const offset = Math.round(alpha * 14);
-    _blockCanvas.style.filter = alpha > 0.01
-      ? `drop-shadow(${offset}px ${offset}px ${blur}px rgba(0,0,0,1))`
-      : '';
+  // Floor shadow canvas
+  if (_floorCanvas) {
+    if (alpha > 0.01) {
+      if (!_floorCanvas._drawn) { drawFloorShadow(); _floorCanvas._drawn = true; }
+      _floorCanvas.style.opacity = alpha.toFixed(3);
+    } else {
+      _floorCanvas.style.opacity = '0';
+      _floorCanvas._drawn = false;
+    }
   }
+  // Remove old drop-shadow filter — floor canvas replaces it
+  if (_blockCanvas) _blockCanvas.style.filter = '';
   if (p < 1) {
     _animFrame = requestAnimationFrame(_animateLight);
   } else {
     if (_whiteLight) _whiteLight.style.opacity = '0';
     if (_vignette) _vignette.style.opacity = '0';
     if (_overlay) _overlay.style.opacity = '0';
+    if (_floorCanvas) { _floorCanvas.style.opacity = '0'; _floorCanvas._drawn = false; }
     if (_blockCanvas) _blockCanvas.style.filter = '';
     _animFrame = null;
   }
