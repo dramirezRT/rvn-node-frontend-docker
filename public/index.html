@@ -743,18 +743,17 @@
   z-index: 0;
   opacity: 0;
 }
-/* Warm tunnel glow — sits behind the numbers */
+/* Warm tunnel glow — sits behind the numbers, no blend-mode so it doesn't bleed through */
 #whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   background:
-    radial-gradient(ellipse 7% 5% at 50% 42%,
-      rgba(255,255,255,0.85)  0%,
-      rgba(255,220,120,0.60) 20%,
-      rgba(220,130,15,0.30)  45%,
-      rgba(140,65,0,0.10)   75%,
+    radial-gradient(ellipse 18% 14% at 50% 42%,
+      rgba(255,200,80,0.95)  0%,
+      rgba(230,150,20,0.70) 25%,
+      rgba(180,100,10,0.35) 55%,
+      rgba(100,50,0,0.10)   80%,
       transparent            100%);
-  mix-blend-mode: screen;
   opacity: 0;
 }
 /* Light rays canvas — full screen, sits between floor shadow and vignette */
@@ -787,9 +786,9 @@
   position: fixed;
   pointer-events: none;
   z-index: 10;
-  opacity: 0.85;
+  opacity: 0.9;
   transform-origin: top center;
-  transform: perspective(600px) rotateX(40deg);
+  transform: perspective(500px) rotateX(60deg);
   filter: blur(2px);
 }
 #ravenImg, #tunnelCanvas {
@@ -1719,6 +1718,8 @@ const _blockCanvas = document.getElementById('block-canvas');
 const _floorCanvas = document.getElementById('floor-shadow');
 const _floorCtx    = _floorCanvas ? _floorCanvas.getContext('2d') : null;
 
+let _floorAnimAlpha = 0; // set by animation loop, used by shadow draw
+
 function drawFloorShadow() {
   if (!_floorCtx || !_blockCanvas) return;
 
@@ -1753,9 +1754,16 @@ function drawFloorShadow() {
   _floorCtx.drawImage(_blockCanvas, 0, srcH - shH, srcW, shH, 0, 0, srcW, shH);
   _floorCtx.restore();
 
-  // Tint the reflected image: darken + amber tint so it's visible against dark bg
+  // Tint the reflected image: amber overlay, brightens when light fires
+  // Idle: slightly transparent amber so it's nicely visible. During animation: bright amber glow.
+  const idleTint  = 0.45;
+  const animBoost = _floorAnimAlpha * 0.45; // goes from 0 → 0.45 extra during animation
+  const tintAlpha = Math.min(0.92, idleTint + animBoost);
+  const tintR = Math.round(80 + _floorAnimAlpha * 175);   // 80 → 255 red
+  const tintG = Math.round(40 + _floorAnimAlpha * 160);   // 40 → 200 green
+  const tintB = Math.round(0);
   _floorCtx.globalCompositeOperation = 'source-atop';
-  _floorCtx.fillStyle = 'rgba(40, 20, 0, 0.72)';   // dark amber overlay — visible on black
+  _floorCtx.fillStyle = `rgba(${tintR}, ${tintG}, ${tintB}, ${tintAlpha.toFixed(3)})`;
   _floorCtx.fillRect(0, 0, srcW, shH);
   _floorCtx.globalCompositeOperation = 'source-over';
 
@@ -1914,6 +1922,10 @@ function _animateLight(ts) {
   if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
   if (_vignette) _vignette.style.opacity = alpha.toFixed(3);
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
+  // Numbers go dark (silhouette) as light fires — brightness drops to 15% at peak
+  if (_blockCanvas) _blockCanvas.style.filter = alpha > 0.01 ? `brightness(${(1 - alpha * 0.85).toFixed(3)})` : '';
+  // Floor brightens with animation
+  _floorAnimAlpha = alpha;
   // Light rays
   if (_raysCanvas) {
     if (alpha > 0.01) {
@@ -1930,6 +1942,8 @@ function _animateLight(ts) {
     if (_whiteLight) _whiteLight.style.opacity = '0';
     if (_vignette) _vignette.style.opacity = '0';
     if (_overlay) _overlay.style.opacity = '0';
+    if (_blockCanvas) _blockCanvas.style.filter = '';
+    _floorAnimAlpha = 0;
     if (_raysCanvas) { _raysCanvas.style.opacity = '0'; }
     if (_raysCtx) _raysCtx.clearRect(0, 0, _raysCanvas.width, _raysCanvas.height);
     _animFrame = null;
