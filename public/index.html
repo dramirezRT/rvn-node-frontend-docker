@@ -782,9 +782,9 @@
   z-index: 10;
   opacity: 0;
   transition: opacity 0.1s ease-out;
-  /* Position directly below block-canvas (same anchor as block-canvas but offset by its height) */
-  transform: translate(-50%, -60%) translateY(100%);
-  filter: blur(1.5px);
+  transform-origin: top center;
+  transform: translate(-50%, -30%) perspective(400px) rotateX(55deg);
+  filter: blur(2px);
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -1721,16 +1721,16 @@ function drawFloorShadow() {
   const cssW = _blockCanvas.offsetWidth  || Math.round(srcW / dpr);
   const cssH = _blockCanvas.offsetHeight || Math.round(srcH / dpr);
 
-  // Shadow is same width, 60% as tall as the source
-  const shH = Math.round(srcH * 0.6);
+  // Shadow is same width, 80% as tall as the source
+  const shH = Math.round(srcH * 0.8);
   _floorCanvas.width        = srcW;
   _floorCanvas.height       = shH;
   _floorCanvas.style.width  = cssW + 'px';
-  _floorCanvas.style.height = Math.round(cssH * 0.6) + 'px';
+  _floorCanvas.style.height = Math.round(cssH * 0.8) + 'px';
 
   _floorCtx.clearRect(0, 0, srcW, shH);
 
-  // Draw source from the BOTTOM of the digits — take the bottom 60% of the block canvas
+  // Draw source from the BOTTOM of the digits — take the bottom 80% of the block canvas
   // This means the shadow starts at the digit feet and extends downward
   _floorCtx.drawImage(_blockCanvas, 0, srcH - shH, srcW, shH, 0, 0, srcW, shH);
 
@@ -1742,9 +1742,9 @@ function drawFloorShadow() {
 
   // Fade out from top (digit feet = solid) to bottom (far = transparent)
   const fade = _floorCtx.createLinearGradient(0, 0, 0, shH);
-  fade.addColorStop(0,   'rgba(0,0,0,0)');    // top: keep opaque (digit feet)
-  fade.addColorStop(0.5, 'rgba(0,0,0,0)');    // halfway: still solid
-  fade.addColorStop(1,   'rgba(0,0,0,1)');    // bottom: fully erased
+  fade.addColorStop(0,   'rgba(0,0,0,0)');    // top/near: keep (visible shadow at digit feet)
+  fade.addColorStop(0.7, 'rgba(0,0,0,0)');    // still solid most of the way
+  fade.addColorStop(1,   'rgba(0,0,0,1)');    // bottom/far: erase (fades out at far edge)
   _floorCtx.globalCompositeOperation = 'destination-out';
   _floorCtx.fillStyle = fade;
   _floorCtx.fillRect(0, 0, srcW, shH);
@@ -1799,5 +1799,7 @@ function triggerBlockNotification() {
   _animFrame = requestAnimationFrame(_animateLight);
 }
 </script>
+<button id="testShadow" style="position:fixed;bottom:20px;right:20px;z-index:9999;padding:8px 16px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-size:14px;">Test Shadow</button>
+<script>document.getElementById("testShadow").addEventListener("click", () => triggerBlockNotification());</script>
 </body>
 </html>
