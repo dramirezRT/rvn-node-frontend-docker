@@ -1370,6 +1370,11 @@
           currentHeight = data.blockHeight;
           mockHeight = data.blockHeight;
           renderText(formatNumber(data.blockHeight), true);
+          // Trigger sound + light notification
+          if (lastRealHeight !== null && typeof triggerBlockNotification === 'function') {
+            triggerBlockNotification();
+          }
+          lastRealHeight = data.blockHeight;
         }
       }
 
@@ -1613,6 +1618,88 @@
   }
 
 })();
+
+// ===== BLOCK SOUND + LIGHT NOTIFICATIONS =====
+const SOUNDS = [
+  'sounds/rvn-notify-raven1.mp3',
+  'sounds/rvn-notify-raven2.mp3',
+  'sounds/rvn-notify-corax-1a.mp3',
+  'sounds/rvn-notify-corax-1b.mp3',
+  'sounds/rvn-notify-corax-2.mp3',
+  'sounds/rvn-notify-corax-3.mp3',
+  'sounds/rvn-notify-corax-4.mp3',
+  'sounds/rvn-notify-corax-5.mp3',
+  'sounds/rvn-notify-corax-7.mp3',
+  'sounds/rvn-notify-corax-8.mp3',
+  'sounds/rvn-notify-corax-9.mp3',
+  'sounds/rvn-notify-corax-10.mp3',
+];
+
+const audioPool = SOUNDS.map(src => {
+  const a = new Audio(src);
+  a.preload = 'auto';
+  return a;
+});
+
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  audioPool.forEach(s => {
+    s.volume = 0;
+    s.play().then(() => { s.pause(); s.currentTime = 0; s.volume = 1; }).catch(() => {});
+  });
+}
+document.addEventListener('click', unlockAudio, { once: true });
+document.addEventListener('keydown', unlockAudio, { once: true });
+
+let lastPlayedIdx = -1;
+function playRandomSound() {
+  let idx;
+  do { idx = Math.floor(Math.random() * audioPool.length); }
+  while (idx === lastPlayedIdx && audioPool.length > 1);
+  lastPlayedIdx = idx;
+  const a = audioPool[idx];
+  a.currentTime = 0;
+  a.volume = 1;
+  a.play().catch(() => {});
+}
+
+// White light animation
+const _overlay = document.getElementById('blockOverlay');
+const _whiteLight = document.getElementById('whiteLight');
+const ANIM_DURATION = 5000;
+let _animFrame = null;
+let _animStart = null;
+
+function _animateLight(ts) {
+  if (!_animStart) _animStart = ts;
+  const p = Math.min((ts - _animStart) / ANIM_DURATION, 1);
+  let alpha;
+  if (p < 0.2)      alpha = p / 0.2;
+  else if (p < 0.6) alpha = 1.0;
+  else              alpha = 1.0 - (p - 0.6) / 0.4;
+  alpha = Math.max(0, Math.min(1, alpha));
+  if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
+  if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
+  if (p < 1) {
+    _animFrame = requestAnimationFrame(_animateLight);
+  } else {
+    if (_whiteLight) _whiteLight.style.opacity = '0';
+    if (_overlay) _overlay.style.opacity = '0';
+    _animFrame = null;
+  }
+}
+
+function triggerBlockNotification() {
+  const toggle = document.getElementById('soundToggle');
+  if (toggle && !toggle.checked) return;
+  playRandomSound();
+  if (_animFrame) { cancelAnimationFrame(_animFrame); _animFrame = null; }
+  _animStart = null;
+  if (_overlay) _overlay.style.opacity = '1';
+  _animFrame = requestAnimationFrame(_animateLight);
+}
 </script>
 </body>
 </html>
