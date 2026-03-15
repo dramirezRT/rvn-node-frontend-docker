@@ -740,7 +740,7 @@
 #blockOverlay {
   position: fixed; inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: 4;
   opacity: 0;
 }
 /* Street lamp light — small bulb at top, cone fanning down */
@@ -1804,7 +1804,7 @@ function _animateLight(ts) {
   else              alpha = 1.0 - (p - 0.6) / 0.4;
   alpha = Math.max(0, Math.min(1, alpha));
   if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
-  if (_vignette) _vignette.style.opacity = alpha.toFixed(3);
+  // vignette disabled — was fighting the light
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
   // Numbers glow as light fires — warm amber glow effect
   if (_blockCanvas) _blockCanvas.style.filter = alpha > 0.01 ?
@@ -1815,7 +1815,7 @@ function _animateLight(ts) {
     _animFrame = requestAnimationFrame(_animateLight);
   } else {
     if (_whiteLight) _whiteLight.style.opacity = '0';
-    if (_vignette) _vignette.style.opacity = '0';
+    // vignette disabled
     if (_overlay) _overlay.style.opacity = '0';
     if (_blockCanvas) _blockCanvas.style.filter = '';
     _floorAnimAlpha = 0;
