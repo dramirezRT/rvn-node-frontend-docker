@@ -748,7 +748,7 @@
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   background:
-    radial-gradient(ellipse 35% 22% at 50% 42%,
+    radial-gradient(ellipse 35% 22% at 50% 30%,
       rgba(255,200,80,0.95)  0%,
       rgba(230,150,20,0.70) 25%,
       rgba(180,100,10,0.35) 55%,
@@ -764,6 +764,14 @@
   height: 100%;
   pointer-events: none;
   z-index: 5;
+  opacity: 0;
+}
+/* Barn-door guides — directed spotlight effect */
+#barn-doors {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
   opacity: 0;
 }
 /* Dark tunnel vignette — on top of everything, nearly black at sides */
@@ -786,7 +794,7 @@
   position: fixed;
   pointer-events: none;
   z-index: 10;
-  opacity: 0.9;
+  opacity: 1.0;
   transform-origin: top center;
   transform: perspective(500px) rotateX(50deg);
   filter: blur(2px);
@@ -820,6 +828,7 @@
 <canvas id="block-canvas"></canvas>
 <canvas id="floor-shadow"></canvas>
 <canvas id="light-rays"></canvas>
+<canvas id="barn-doors"></canvas>
 <!-- Vignette sits above numbers, below UI panels -->
 <div id="vignette" aria-hidden="true"></div>
 
@@ -1742,7 +1751,7 @@ function drawFloorShadow() {
   // Position: snapped to bottom edge of block-canvas in screen coords
   const rect = _blockCanvas.getBoundingClientRect();
   _floorCanvas.style.left = rect.left + 'px';
-  _floorCanvas.style.top  = (rect.bottom - 20) + 'px';   // tighter overlap, floor starts at digit feet
+  _floorCanvas.style.top  = (rect.bottom - 30) + 'px';   // pulled up more, floor starts at digit feet
 
   _floorCtx.clearRect(0, 0, srcW, shH);
 
@@ -1756,7 +1765,7 @@ function drawFloorShadow() {
 
   // Tint the reflected image: amber overlay, brightens when light fires
   // Idle: slightly transparent amber so it's nicely visible. During animation: bright amber glow.
-  const idleTint  = 0.45;
+  const idleTint  = 0.30;
   const animBoost = _floorAnimAlpha * 0.45; // goes from 0 → 0.45 extra during animation
   const tintAlpha = Math.min(0.92, idleTint + animBoost);
   const tintR = Math.round(80 + _floorAnimAlpha * 175);   // 80 → 255 red
@@ -1770,7 +1779,7 @@ function drawFloorShadow() {
   // Fade out: top (digit feet) = visible, bottom (far from digits) = transparent
   const fade = _floorCtx.createLinearGradient(0, 0, 0, shH);
   fade.addColorStop(0,    'rgba(0,0,0,0)');   // near: keep
-  fade.addColorStop(0.65, 'rgba(0,0,0,0)');   // still solid
+  fade.addColorStop(0.80, 'rgba(0,0,0,0)');   // still solid
   fade.addColorStop(1,    'rgba(0,0,0,1)');   // far: erase
   _floorCtx.globalCompositeOperation = 'destination-out';
   _floorCtx.fillStyle = fade;
@@ -1788,6 +1797,64 @@ requestAnimationFrame(_shadowLoop);
 // ── Light rays ───────────────────────────────────────────────────────────────
 const _raysCanvas = document.getElementById('light-rays');
 const _raysCtx    = _raysCanvas ? _raysCanvas.getContext('2d') : null;
+
+// ── Barn doors ───────────────────────────────────────────────────────────────
+const _barnCanvas = document.getElementById('barn-doors');
+const _barnCtx    = _barnCanvas ? _barnCanvas.getContext('2d') : null;
+
+function drawBarnDoors(alpha) {
+  if (!_barnCtx || !_blockCanvas) return;
+
+  const dpr    = window.devicePixelRatio || 1;
+  const W      = window.innerWidth;
+  const H      = window.innerHeight;
+
+  // Resize to fullscreen
+  if (_barnCanvas.width !== Math.round(W * dpr)) {
+    _barnCanvas.width  = Math.round(W * dpr);
+    _barnCanvas.height = Math.round(H * dpr);
+    _barnCanvas.style.width  = W + 'px';
+    _barnCanvas.style.height = H + 'px';
+  }
+
+  _barnCtx.clearRect(0, 0, W * dpr, H * dpr);
+  _barnCtx.save();
+  _barnCtx.scale(dpr, dpr);
+
+  // Get block canvas position at runtime
+  const blockRect = _blockCanvas.getBoundingClientRect();
+
+  // Light source point = (50% of viewport width, 30% of viewport height)
+  const lightX = W * 0.50;
+  const lightY = H * 0.30;
+
+  // Left edge of numbers, right edge of numbers
+  const leftEdge  = blockRect.left;
+  const rightEdge = blockRect.right;
+  const bottomY   = blockRect.bottom;
+
+  // Fill color: dark, fades with animation
+  const fillAlpha = alpha * 0.82;
+
+  // Draw LEFT polygon: from light source, down-left to (0, bottomY), across to (leftEdge, bottomY), back to light
+  _barnCtx.fillStyle = `rgba(0, 0, 0, ${fillAlpha})`;
+  _barnCtx.beginPath();
+  _barnCtx.moveTo(lightX, lightY);
+  _barnCtx.lineTo(0, bottomY);
+  _barnCtx.lineTo(leftEdge, bottomY);
+  _barnCtx.closePath();
+  _barnCtx.fill();
+
+  // Draw RIGHT polygon: from light source, down-right to (W, bottomY), across to (rightEdge, bottomY), back to light
+  _barnCtx.beginPath();
+  _barnCtx.moveTo(lightX, lightY);
+  _barnCtx.lineTo(W, bottomY);
+  _barnCtx.lineTo(rightEdge, bottomY);
+  _barnCtx.closePath();
+  _barnCtx.fill();
+
+  _barnCtx.restore();
+}
 
 function drawLightRays(alpha) {
   if (!_raysCtx || !_blockCanvas || !_floorCanvas) return;
@@ -1936,6 +2003,16 @@ function _animateLight(ts) {
       if (_raysCtx) _raysCtx.clearRect(0, 0, _raysCanvas.width, _raysCanvas.height);
     }
   }
+  // Barn doors
+  if (_barnCanvas) {
+    if (alpha > 0.01) {
+      _barnCanvas.style.opacity = '1';
+      drawBarnDoors(alpha);
+    } else {
+      _barnCanvas.style.opacity = '0';
+      if (_barnCtx) _barnCtx.clearRect(0, 0, _barnCanvas.width, _barnCanvas.height);
+    }
+  }
   if (p < 1) {
     _animFrame = requestAnimationFrame(_animateLight);
   } else {
@@ -1946,6 +2023,8 @@ function _animateLight(ts) {
     _floorAnimAlpha = 0;
     if (_raysCanvas) { _raysCanvas.style.opacity = '0'; }
     if (_raysCtx) _raysCtx.clearRect(0, 0, _raysCanvas.width, _raysCanvas.height);
+    if (_barnCanvas) { _barnCanvas.style.opacity = '0'; }
+    if (_barnCtx) _barnCtx.clearRect(0, 0, _barnCanvas.width, _barnCanvas.height);
     _animFrame = null;
   }
 }
