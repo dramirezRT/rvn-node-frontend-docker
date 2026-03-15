@@ -743,19 +743,28 @@
   z-index: 0;
   opacity: 0;
 }
-/* Warm tunnel glow — sits behind the numbers */
+/* Warm tunnel glow — sits behind the numbers — dimmed */
 #whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   background:
-    radial-gradient(ellipse 8% 6% at 50% 42%,
-      rgba(255,255,255,1)    0%,
-      rgba(255,220,120,0.9) 18%,
-      rgba(230,140,20,0.6)  40%,
-      rgba(200,100,10,0.35) 65%,
-      rgba(120,50,0,0.15)  85%,
-      transparent           100%);
+    radial-gradient(ellipse 5% 4% at 50% 42%,
+      rgba(255,255,255,0.55)  0%,
+      rgba(255,210,100,0.35) 22%,
+      rgba(200,120,10,0.18)  50%,
+      rgba(120,60,0,0.07)   80%,
+      transparent            100%);
   mix-blend-mode: screen;
+  opacity: 0;
+}
+/* Light rays canvas — full screen, sits between floor shadow and vignette */
+#light-rays {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
   opacity: 0;
 }
 /* Dark tunnel vignette — on top of everything, nearly black at sides */
@@ -811,6 +820,7 @@
 <div class="block-label">Block Height</div>
 <canvas id="block-canvas"></canvas>
 <canvas id="floor-shadow"></canvas>
+<canvas id="light-rays"></canvas>
 <!-- Vignette sits above numbers, below UI panels -->
 <div id="vignette" aria-hidden="true"></div>
 
@@ -1766,6 +1776,101 @@ function _shadowLoop() {
   requestAnimationFrame(_shadowLoop);
 }
 requestAnimationFrame(_shadowLoop);
+
+// ── Light rays ───────────────────────────────────────────────────────────────
+const _raysCanvas = document.getElementById('light-rays');
+const _raysCtx    = _raysCanvas ? _raysCanvas.getContext('2d') : null;
+
+function drawLightRays(alpha) {
+  if (!_raysCtx || !_blockCanvas || !_floorCanvas) return;
+
+  const dpr    = window.devicePixelRatio || 1;
+  const W      = window.innerWidth;
+  const H      = window.innerHeight;
+
+  if (_raysCanvas.width !== Math.round(W * dpr)) {
+    _raysCanvas.width  = Math.round(W * dpr);
+    _raysCanvas.height = Math.round(H * dpr);
+    _raysCanvas.style.width  = W + 'px';
+    _raysCanvas.style.height = H + 'px';
+    _raysCtx.scale(dpr, dpr);
+  }
+
+  _raysCtx.clearRect(0, 0, W, H);
+
+  // Where are the real digits and their floor reflection?
+  const srcRect   = _blockCanvas.getBoundingClientRect();
+  const floorRect = _floorCanvas.getBoundingClientRect();
+
+  // Sample contour points from the block canvas pixel data
+  // We read pixels in a temp canvas at lower resolution for performance
+  const SAMPLE_W = 120;
+  const SAMPLE_H = Math.round(SAMPLE_W * (_blockCanvas.height / _blockCanvas.width));
+  const tmp  = document.createElement('canvas');
+  tmp.width  = SAMPLE_W;
+  tmp.height = SAMPLE_H;
+  const tc   = tmp.getContext('2d');
+  tc.drawImage(_blockCanvas, 0, 0, SAMPLE_W, SAMPLE_H);
+  const px   = tc.getImageData(0, 0, SAMPLE_W, SAMPLE_H).data;
+
+  // Collect edge pixels: opaque pixel adjacent to a transparent one
+  const edgePts = [];
+  const stride  = SAMPLE_W * 4;
+  for (let y = 1; y < SAMPLE_H - 1; y++) {
+    for (let x = 1; x < SAMPLE_W - 1; x++) {
+      const i = y * stride + x * 4;
+      const a = px[i + 3];
+      if (a < 20) continue;                // transparent — skip
+      // Check neighbours
+      const neighbours = [
+        px[(y-1)*stride + x*4 + 3],
+        px[(y+1)*stride + x*4 + 3],
+        px[y*stride + (x-1)*4 + 3],
+        px[y*stride + (x+1)*4 + 3],
+      ];
+      if (neighbours.some(n => n < 20)) {
+        // Edge pixel — map to screen coords
+        const sx = srcRect.left + (x / SAMPLE_W) * srcRect.width;
+        const sy = srcRect.top  + (y / SAMPLE_H) * srcRect.height;
+        edgePts.push({ sx, sy });
+      }
+    }
+  }
+
+  if (edgePts.length === 0) return;
+
+  // Subsample for performance (max 80 rays)
+  const step = Math.max(1, Math.floor(edgePts.length / 80));
+  const sampled = edgePts.filter((_, i) => i % step === 0);
+
+  // Floor baseline Y: top of the floor canvas
+  const floorTopY = floorRect.top;
+  const floorCenterX = floorRect.left + floorRect.width / 2;
+
+  _raysCtx.save();
+  _raysCtx.globalAlpha = alpha * 0.55;   // rays fade with overall animation alpha
+  _raysCtx.lineWidth = 0.8;
+
+  for (const { sx, sy } of sampled) {
+    // Mirror X across the floor center so the ray hits the reflection correctly
+    const fx = floorCenterX + (sx - floorCenterX);   // same X (floor same width as digits)
+    const fy = floorTopY + (floorRect.height * 0.15); // land at ~15% into the floor reflection
+
+    const grad = _raysCtx.createLinearGradient(sx, sy, fx, fy);
+    grad.addColorStop(0,   'rgba(255, 200, 80, 0.55)');  // bright amber at digit contour
+    grad.addColorStop(0.5, 'rgba(200, 130, 20, 0.20)');
+    grad.addColorStop(1,   'rgba(150,  80,  0, 0.0)');   // fade to transparent at floor
+
+    _raysCtx.strokeStyle = grad;
+    _raysCtx.beginPath();
+    _raysCtx.moveTo(sx, sy);
+    _raysCtx.lineTo(fx, fy);
+    _raysCtx.stroke();
+  }
+
+  _raysCtx.restore();
+}
+
 const ANIM_DURATION = 5000;
 let _animFrame = null;
 let _animStart = null;
@@ -1781,15 +1886,24 @@ function _animateLight(ts) {
   if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
   if (_vignette) _vignette.style.opacity = alpha.toFixed(3);
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
-  // Remove old drop-shadow filter — floor canvas replaces it
-  if (_blockCanvas) _blockCanvas.style.filter = '';
+  // Light rays
+  if (_raysCanvas) {
+    if (alpha > 0.01) {
+      _raysCanvas.style.opacity = '1';
+      drawLightRays(alpha);
+    } else {
+      _raysCanvas.style.opacity = '0';
+      if (_raysCtx) _raysCtx.clearRect(0, 0, _raysCanvas.width, _raysCanvas.height);
+    }
+  }
   if (p < 1) {
     _animFrame = requestAnimationFrame(_animateLight);
   } else {
     if (_whiteLight) _whiteLight.style.opacity = '0';
     if (_vignette) _vignette.style.opacity = '0';
     if (_overlay) _overlay.style.opacity = '0';
-    if (_blockCanvas) _blockCanvas.style.filter = '';
+    if (_raysCanvas) { _raysCanvas.style.opacity = '0'; }
+    if (_raysCtx) _raysCtx.clearRect(0, 0, _raysCanvas.width, _raysCanvas.height);
     _animFrame = null;
   }
 }
