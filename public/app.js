@@ -173,7 +173,9 @@ function renderBlockCount(count) {
   if (count !== previousBlockCount) {
     el.classList.add('new-block');
     setTimeout(() => el.classList.remove('new-block'), 800);
-    triggerBlockNotification();
+    if (window.triggerBlockNotification) {
+      window.triggerBlockNotification();
+    }
   }
 
   el.innerHTML = buildDigitHTML(formatted, prevFormatted) + '<span class="live-dot" id="liveDot"></span>';
@@ -454,7 +456,15 @@ document.addEventListener('keydown', (e) => {
   function unlockAudio() {
     if (audioUnlocked) return;
     audioUnlocked = true;
-    audioPool.forEach(s => { s.volume = 0; s.play().catch(()=>{}); s.pause(); s.currentTime = 0; s.volume = 1; });
+    console.log('Unlocking audio...');
+    audioPool.forEach(s => {
+      s.volume = 0.5;
+      s.play().then(() => {
+        console.log('Audio unlocked for:', s.src);
+        s.pause();
+        s.currentTime = 0;
+      }).catch(e => console.log('Audio unlock failed:', e));
+    });
   }
   document.addEventListener('click', unlockAudio, { once: true });
   document.addEventListener('keydown', unlockAudio, { once: true });
@@ -471,83 +481,35 @@ document.addEventListener('keydown', (e) => {
     a.play().catch(() => {});
   }
 
-  // ── Tunnel + Raven animation ──
-  const overlay  = document.getElementById('blockOverlay');
-  const canvas   = document.getElementById('tunnelCanvas');
-  const ravenImg = document.getElementById('ravenImg');
-  const ctx      = canvas && canvas.getContext('2d');
+  // ── White light animation ──
+  const overlay   = document.getElementById('blockOverlay');
+  const whiteLight = document.getElementById('whiteLight');
 
   let animFrame = null;
   let animStart = null;
   const ANIM_DURATION = 5000; // ms — matches sound length
 
-  function resizeCanvas() {
-    if (!canvas) return;
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  function easeInOut(t) {
-    return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-  }
-
-  function drawTunnel(progress) {
-    if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
-    const cx = W / 2, cy = H / 2;
-    ctx.clearRect(0, 0, W, H);
-
-    // Envelope: fade in 0→0.25, hold 0.25→0.65, fade out 0.65→1.0
-    let envAlpha;
-    if (progress < 0.25)      envAlpha = progress / 0.25;
-    else if (progress < 0.65) envAlpha = 1.0;
-    else                      envAlpha = 1.0 - (progress - 0.65) / 0.35;
-    envAlpha = Math.max(0, Math.min(1, envAlpha));
-
-    // Radial light beam from center
-    const maxR = Math.sqrt(W*W + H*H) * 0.6;
-    const beamR = maxR * easeInOut(Math.min(progress * 2, 1));
-
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, beamR);
-    grad.addColorStop(0,   `rgba(255,210,80,${0.55 * envAlpha})`);
-    grad.addColorStop(0.18,`rgba(232,160,0,${0.35 * envAlpha})`);
-    grad.addColorStop(0.45,`rgba(180,100,0,${0.15 * envAlpha})`);
-    grad.addColorStop(1,   `rgba(0,0,0,0)`);
-
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-
-    // Tunnel rings — concentric circles rushing outward
-    const numRings = 7;
-    for (let i = 0; i < numRings; i++) {
-      const t = ((progress * 2 + i / numRings) % 1);
-      const r = t * maxR * 0.9;
-      const ringAlpha = (1 - t) * 0.22 * envAlpha;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(232,160,0,${ringAlpha})`;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-
-    // Raven image opacity follows envelope
-    if (ravenImg) {
-      ravenImg.style.opacity = (envAlpha * 0.9).toFixed(3);
-    }
-  }
-
-  function animateTunnel(ts) {
+  function animateWhiteLight(ts) {
     if (!animStart) animStart = ts;
     const progress = Math.min((ts - animStart) / ANIM_DURATION, 1);
-    drawTunnel(progress);
+
+    // Envelope: fade in 0→0.2, hold 0.2→0.6, fade out 0.6→1.0
+    let envAlpha;
+    if (progress < 0.2)      envAlpha = progress / 0.2;
+    else if (progress < 0.6) envAlpha = 1.0;
+    else                      envAlpha = 1.0 - (progress - 0.6) / 0.4;
+    envAlpha = Math.max(0, Math.min(1, envAlpha));
+
+    if (whiteLight) {
+      whiteLight.style.opacity = envAlpha.toFixed(3);
+    }
+    overlay.style.opacity = envAlpha > 0 ? '1' : '0';
+
     if (progress < 1) {
-      animFrame = requestAnimationFrame(animateTunnel);
+      animFrame = requestAnimationFrame(animateWhiteLight);
     } else {
       // Clean up
-      ctx && ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (ravenImg) ravenImg.style.opacity = '0';
+      if (whiteLight) whiteLight.style.opacity = '0';
       overlay.style.opacity = '0';
       overlay.style.pointerEvents = 'none';
       animFrame = null;
@@ -560,15 +522,17 @@ document.addEventListener('keydown', (e) => {
       animFrame = null;
     }
     animStart = null;
-    overlay.style.opacity = '1';
     overlay.style.pointerEvents = 'none';
-    animFrame = requestAnimationFrame(animateTunnel);
+    animFrame = requestAnimationFrame(animateWhiteLight);
   }
 
   // ── Public trigger ──
   window.triggerBlockNotification = function() {
+    console.log('triggerBlockNotification called');
     const toggle = document.getElementById('soundToggle');
+    console.log('Toggle checked:', toggle ? toggle.checked : 'toggle not found');
     if (toggle && !toggle.checked) return;
+    console.log('Playing sound, audioPool length:', audioPool.length);
     playRandomSound();
     startAnimation();
   };

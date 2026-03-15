@@ -572,7 +572,7 @@
     height: 100vh;
     background: var(--rvn-surface);
     border-left: 1px solid rgba(56, 77, 157, 0.12);
-    z-index: 50;
+    z-index: 1100;
     transform: translateX(100%);
     transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     display: flex;
@@ -743,25 +743,15 @@
   z-index: 500;
   opacity: 0;
 }
-#tunnelCanvas {
+#whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-}
-#ravenImg {
-  position: absolute;
-  width: 300px; height: auto;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.3) 35%, transparent 70%);
   mix-blend-mode: screen;
-  filter: brightness(2) saturate(0.8);
   opacity: 0;
-  animation: ravenFade 5000ms ease-in-out forwards;
 }
-@keyframes ravenFade {
-  0% { opacity: 0; }
-  25% { opacity: 0.85; }
-  65% { opacity: 0.85; }
-  100% { opacity: 0; }
+#ravenImg, #tunnelCanvas {
+  display: none;
 }
 </style>
 </head>
@@ -778,8 +768,9 @@
   </div>
 </div>
 
-<!-- Block notification overlay (tunnel + raven) -->
+<!-- Block notification overlay (white light effect) -->
 <div id="blockOverlay" aria-hidden="true">
+  <div id="whiteLight"></div>
   <canvas id="tunnelCanvas"></canvas>
   <img id="ravenImg" src="raven.png" alt="">
 </div>
