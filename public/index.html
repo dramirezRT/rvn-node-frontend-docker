@@ -1825,8 +1825,7 @@ function _animateLight(ts) {
 
 function triggerBlockNotification() {
   const toggle = document.getElementById('soundToggle');
-  if (toggle && !toggle.checked) return;
-  playRandomSound();
+  if (toggle && toggle.checked) playRandomSound();  // sound only if enabled
   if (_animFrame) { cancelAnimationFrame(_animFrame); _animFrame = null; }
   _animStart = null;
   if (_overlay) _overlay.style.opacity = '1';
