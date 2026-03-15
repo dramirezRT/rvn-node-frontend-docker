@@ -774,23 +774,19 @@
 #block-canvas {
   transition: filter 0.1s ease-out;
 }
-#floor-shadow-wrap {
+#floor-shadow {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -60%) translateY(98%);
+  width: auto;
+  height: auto;
   pointer-events: none;
   z-index: 1;
   opacity: 0;
   transition: opacity 0.1s ease-out;
-  /* perspective makes the flat canvas appear to lie on the floor receding away */
-  perspective: 320px;
-  perspective-origin: 50% 0%;
-}
-#floor-shadow {
-  display: block;
+  /* Flip and tilt to cast shadow forward on floor */
+  transform: translate(-50%, calc(-60% + 100%)) scaleY(-1) perspective(400px) rotateX(55deg);
   transform-origin: top center;
-  transform: rotateX(60deg);
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -819,7 +815,7 @@
 
 <div class="block-label">Block Height</div>
 <canvas id="block-canvas"></canvas>
-<div id="floor-shadow-wrap"><canvas id="floor-shadow"></canvas></div>
+<canvas id="floor-shadow"></canvas>
 <!-- Vignette sits above numbers, below UI panels -->
 <div id="vignette" aria-hidden="true"></div>
 
@@ -1715,49 +1711,45 @@ const _overlay   = document.getElementById('blockOverlay');
 const _whiteLight = document.getElementById('whiteLight');
 const _vignette   = document.getElementById('vignette');
 const _blockCanvas = document.getElementById('block-canvas');
-const _floorWrap   = document.getElementById('floor-shadow-wrap');
 const _floorCanvas = document.getElementById('floor-shadow');
 const _floorCtx    = _floorCanvas ? _floorCanvas.getContext('2d') : null;
 
-// Draw the floor shadow: digit silhouettes flipped, lying flat on the floor,
-// solid dark near the numbers and fading to transparent in the distance.
 function drawFloorShadow() {
   if (!_floorCtx || !_blockCanvas) return;
-  const w   = _blockCanvas.width;
-  const h   = _blockCanvas.height;
-  const dpr = window.devicePixelRatio || 1;
-  const cssW = _blockCanvas.offsetWidth  || Math.round(w / dpr);
-  const cssH = _blockCanvas.offsetHeight || Math.round(h / dpr);
 
-  // Shadow canvas same width, 80% height (perspective wrap will handle foreshortening)
-  _floorCanvas.width        = w;
-  _floorCanvas.height       = Math.round(h * 0.8);
-  _floorCanvas.style.width  = cssW + 'px';
-  _floorCanvas.style.height = Math.round(cssH * 0.8) + 'px';
+  const srcW = _blockCanvas.width;
+  const srcH = _blockCanvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  const cssSrcW = _blockCanvas.offsetWidth || Math.round(srcW / dpr);
+  const cssSrcH = _blockCanvas.offsetHeight || Math.round(srcH / dpr);
+
+  // Shadow canvas: same width, 60% height (CSS transform handles perspective)
+  const shadowH = Math.round(srcH * 0.6);
+  _floorCanvas.width = srcW;
+  _floorCanvas.height = shadowH;
+  _floorCanvas.style.width = cssSrcW + 'px';
+  _floorCanvas.style.height = Math.round(cssSrcH * 0.6) + 'px';
 
   _floorCtx.clearRect(0, 0, _floorCanvas.width, _floorCanvas.height);
 
-  // Draw the block canvas flipped vertically (top of shadow = base of numbers)
-  _floorCtx.save();
-  _floorCtx.translate(0, 0);
-  _floorCtx.scale(1, -1);
-  _floorCtx.drawImage(_blockCanvas, 0, -_floorCanvas.height);
-  _floorCtx.restore();
+  // Draw the full block canvas - digits are in the lower portion
+  _floorCtx.drawImage(_blockCanvas, 0, 0);
 
-  // Desaturate to black silhouette: multiply with black
-  _floorCtx.globalCompositeOperation = 'multiply';
-  _floorCtx.fillStyle = 'rgba(0,0,0,1)';
+  // Apply gradient mask: solid at top (near numbers), transparent at bottom (toward viewer)
+  // After CSS scaleY(-1), canvas top = near numbers, canvas bottom = toward viewer
+  const fadeMask = _floorCtx.createLinearGradient(0, 0, 0, _floorCanvas.height);
+  fadeMask.addColorStop(0,    'rgba(0,0,0,1)');   // near numbers: fully opaque
+  fadeMask.addColorStop(0.5,  'rgba(0,0,0,0.5)'); // middle: half visible
+  fadeMask.addColorStop(1,    'rgba(0,0,0,0)');   // toward viewer: fully transparent
+  _floorCtx.globalCompositeOperation = 'destination-in';
+  _floorCtx.fillStyle = fadeMask;
   _floorCtx.fillRect(0, 0, _floorCanvas.width, _floorCanvas.height);
-  _floorCtx.globalCompositeOperation = 'source-over';
 
-  // Fade out toward the far end (bottom of canvas = far from viewer after rotateX)
-  const fade = _floorCtx.createLinearGradient(0, 0, 0, _floorCanvas.height);
-  fade.addColorStop(0,    'rgba(0,0,0,0)');  // near (touching numbers): fully visible
-  fade.addColorStop(0.55, 'rgba(0,0,0,0)');  // still solid halfway
-  fade.addColorStop(1,    'rgba(0,0,0,1)');  // far end: fully erased
-  _floorCtx.globalCompositeOperation = 'destination-out';
-  _floorCtx.fillStyle = fade;
+  // Colorize: dark warm tint using source-in (keeps alpha, replaces color)
+  _floorCtx.globalCompositeOperation = 'source-in';
+  _floorCtx.fillStyle = 'rgba(20,10,0,1)';
   _floorCtx.fillRect(0, 0, _floorCanvas.width, _floorCanvas.height);
+
   _floorCtx.globalCompositeOperation = 'source-over';
 }
 const ANIM_DURATION = 5000;
@@ -1776,13 +1768,13 @@ function _animateLight(ts) {
   if (_vignette) _vignette.style.opacity = alpha.toFixed(3);
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
   // Floor shadow
-  if (_floorWrap) {
+  if (_floorCanvas) {
     if (alpha > 0.01) {
-      if (!_floorWrap._drawn) { drawFloorShadow(); _floorWrap._drawn = true; }
-      _floorWrap.style.opacity = alpha.toFixed(3);
+      if (!_floorCanvas._drawn) { drawFloorShadow(); _floorCanvas._drawn = true; }
+      _floorCanvas.style.opacity = alpha.toFixed(3);
     } else {
-      _floorWrap.style.opacity = '0';
-      _floorWrap._drawn = false;
+      _floorCanvas.style.opacity = '0';
+      _floorCanvas._drawn = false;
     }
   }
   // Remove old drop-shadow filter — floor canvas replaces it
@@ -1793,7 +1785,7 @@ function _animateLight(ts) {
     if (_whiteLight) _whiteLight.style.opacity = '0';
     if (_vignette) _vignette.style.opacity = '0';
     if (_overlay) _overlay.style.opacity = '0';
-    if (_floorWrap) { _floorWrap.style.opacity = '0'; _floorWrap._drawn = false; }
+    if (_floorCanvas) { _floorCanvas.style.opacity = '0'; _floorCanvas._drawn = false; }
     if (_blockCanvas) _blockCanvas.style.filter = '';
     _animFrame = null;
   }
