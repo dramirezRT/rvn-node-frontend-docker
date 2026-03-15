@@ -780,7 +780,7 @@
   left: 50%;
   pointer-events: none;
   z-index: 10;
-  opacity: 0;
+  opacity: 0.7;
   transition: opacity 0.1s ease-out;
   transform-origin: top center;
   transform: translate(-50%, -30%) perspective(400px) rotateX(55deg);
@@ -1750,6 +1750,13 @@ function drawFloorShadow() {
   _floorCtx.fillRect(0, 0, srcW, shH);
   _floorCtx.globalCompositeOperation = 'source-over';
 }
+
+// Continuously re-draw floor shadow to stay in sync with animated block canvas
+function _shadowLoop() {
+  drawFloorShadow();
+  requestAnimationFrame(_shadowLoop);
+}
+requestAnimationFrame(_shadowLoop);
 const ANIM_DURATION = 5000;
 let _animFrame = null;
 let _animStart = null;
@@ -1765,16 +1772,6 @@ function _animateLight(ts) {
   if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
   if (_vignette) _vignette.style.opacity = alpha.toFixed(3);
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
-  // Floor shadow
-  if (_floorCanvas) {
-    if (alpha > 0.01) {
-      if (!_floorCanvas._drawn) { drawFloorShadow(); _floorCanvas._drawn = true; }
-      _floorCanvas.style.opacity = alpha.toFixed(3);
-    } else {
-      _floorCanvas.style.opacity = '0';
-      _floorCanvas._drawn = false;
-    }
-  }
   // Remove old drop-shadow filter — floor canvas replaces it
   if (_blockCanvas) _blockCanvas.style.filter = '';
   if (p < 1) {
@@ -1783,7 +1780,6 @@ function _animateLight(ts) {
     if (_whiteLight) _whiteLight.style.opacity = '0';
     if (_vignette) _vignette.style.opacity = '0';
     if (_overlay) _overlay.style.opacity = '0';
-    if (_floorCanvas) { _floorCanvas.style.opacity = '0'; _floorCanvas._drawn = false; }
     if (_blockCanvas) _blockCanvas.style.filter = '';
     _animFrame = null;
   }
