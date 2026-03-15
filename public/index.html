@@ -775,16 +775,13 @@
   transition: filter 0.1s ease-out;
 }
 #floor-shadow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: fixed;
   pointer-events: none;
   z-index: 10;
-  opacity: 0.7;
-  transition: opacity 0.1s ease-out;
+  opacity: 0.85;
   transform-origin: top center;
-  transform: translate(-50%, -30%) perspective(400px) rotateX(55deg);
-  filter: blur(2px);
+  transform: perspective(500px) rotateX(60deg);
+  filter: blur(3px);
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -1715,36 +1712,48 @@ const _floorCtx    = _floorCanvas ? _floorCanvas.getContext('2d') : null;
 function drawFloorShadow() {
   if (!_floorCtx || !_blockCanvas) return;
 
+  const dpr  = window.devicePixelRatio || 1;
   const srcW = _blockCanvas.width;
   const srcH = _blockCanvas.height;
-  const dpr  = window.devicePixelRatio || 1;
-  const cssW = _blockCanvas.offsetWidth  || Math.round(srcW / dpr);
-  const cssH = _blockCanvas.offsetHeight || Math.round(srcH / dpr);
+  const cssW = Math.round(srcW / dpr);
+  const cssH = Math.round(srcH / dpr);
+  const shH  = Math.round(srcH * 0.6);          // shadow canvas = 60% the height of digits
+  const cssShH = Math.round(cssH * 0.6);
 
-  // Shadow is same width, 80% as tall as the source
-  const shH = Math.round(srcH * 0.8);
-  _floorCanvas.width        = srcW;
-  _floorCanvas.height       = shH;
+  // Size the canvas
+  if (_floorCanvas.width !== srcW || _floorCanvas.height !== shH) {
+    _floorCanvas.width  = srcW;
+    _floorCanvas.height = shH;
+  }
   _floorCanvas.style.width  = cssW + 'px';
-  _floorCanvas.style.height = Math.round(cssH * 0.8) + 'px';
+  _floorCanvas.style.height = cssShH + 'px';
+
+  // Position: snapped to bottom edge of block-canvas in screen coords
+  const rect = _blockCanvas.getBoundingClientRect();
+  _floorCanvas.style.left = rect.left + 'px';
+  _floorCanvas.style.top  = (rect.bottom - 4) + 'px';   // 4px overlap so no gap at baseline
 
   _floorCtx.clearRect(0, 0, srcW, shH);
 
-  // Draw source from the BOTTOM of the digits — take the bottom 80% of the block canvas
-  // This means the shadow starts at the digit feet and extends downward
+  // Flip vertically: draw block canvas upside-down (reflected on the floor)
+  _floorCtx.save();
+  _floorCtx.translate(0, shH);
+  _floorCtx.scale(1, -1);
+  // Draw only the bottom portion of the digits (the feet, not the whole number)
   _floorCtx.drawImage(_blockCanvas, 0, srcH - shH, srcW, shH, 0, 0, srcW, shH);
+  _floorCtx.restore();
 
-  // Make it a dark silhouette
-  _floorCtx.globalCompositeOperation = 'source-in';
-  _floorCtx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+  // Tint the reflected image: darken + amber tint so it's visible against dark bg
+  _floorCtx.globalCompositeOperation = 'source-atop';
+  _floorCtx.fillStyle = 'rgba(40, 20, 0, 0.72)';   // dark amber overlay — visible on black
   _floorCtx.fillRect(0, 0, srcW, shH);
   _floorCtx.globalCompositeOperation = 'source-over';
 
-  // Fade out from top (digit feet = solid) to bottom (far = transparent)
+  // Fade out: top (digit feet) = visible, bottom (far from digits) = transparent
   const fade = _floorCtx.createLinearGradient(0, 0, 0, shH);
-  fade.addColorStop(0,   'rgba(0,0,0,0)');    // top/near: keep (visible shadow at digit feet)
-  fade.addColorStop(0.7, 'rgba(0,0,0,0)');    // still solid most of the way
-  fade.addColorStop(1,   'rgba(0,0,0,1)');    // bottom/far: erase (fades out at far edge)
+  fade.addColorStop(0,    'rgba(0,0,0,0)');   // near: keep
+  fade.addColorStop(0.65, 'rgba(0,0,0,0)');   // still solid
+  fade.addColorStop(1,    'rgba(0,0,0,1)');   // far: erase
   _floorCtx.globalCompositeOperation = 'destination-out';
   _floorCtx.fillStyle = fade;
   _floorCtx.fillRect(0, 0, srcW, shH);
