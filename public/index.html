@@ -746,9 +746,12 @@
 #whiteLight {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  background: radial-gradient(ellipse at center, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.3) 35%, transparent 70%);
+  background: radial-gradient(ellipse 45% 38% at 50% 42%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.12) 60%, transparent 75%);
   mix-blend-mode: screen;
   opacity: 0;
+}
+#block-canvas {
+  transition: filter 0.15s ease-out;
 }
 #ravenImg, #tunnelCanvas {
   display: none;
@@ -1668,6 +1671,7 @@ function playRandomSound() {
 // White light animation
 const _overlay = document.getElementById('blockOverlay');
 const _whiteLight = document.getElementById('whiteLight');
+const _blockCanvas = document.getElementById('block-canvas');
 const ANIM_DURATION = 5000;
 let _animFrame = null;
 let _animStart = null;
@@ -1682,11 +1686,21 @@ function _animateLight(ts) {
   alpha = Math.max(0, Math.min(1, alpha));
   if (_whiteLight) _whiteLight.style.opacity = alpha.toFixed(3);
   if (_overlay) _overlay.style.opacity = alpha > 0 ? '1' : '0';
+  // Shadow on block digits — light from behind casts shadow toward viewer
+  if (_blockCanvas) {
+    const blur = Math.round(alpha * 18);
+    const offset = Math.round(alpha * 8);
+    const shadowAlpha = (alpha * 0.85).toFixed(2);
+    _blockCanvas.style.filter = alpha > 0.01
+      ? `drop-shadow(${offset}px ${offset}px ${blur}px rgba(0,0,0,${shadowAlpha}))`
+      : '';
+  }
   if (p < 1) {
     _animFrame = requestAnimationFrame(_animateLight);
   } else {
     if (_whiteLight) _whiteLight.style.opacity = '0';
     if (_overlay) _overlay.style.opacity = '0';
+    if (_blockCanvas) _blockCanvas.style.filter = '';
     _animFrame = null;
   }
 }
