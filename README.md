@@ -21,7 +21,7 @@ Published images: [https://hub.docker.com/r/dramirezrt/rvn-node-frontend](https:
   - ZMQ must be enabled (`ZMQ=true`) for real-time updates
   - RPC credentials (`rpcuser` / `rpcpassword`) must be set in `raven.conf`
 - _(Optional)_ A running ElectrumX server for log streaming — see [RVN-Electrumx-docker](https://github.com/dramirezRT/RVN-Electrumx-docker)
-  - The ElectrumX log file is written to `/electrum-data/electrumx.log` inside the ElectrumX container; mount the same host path into this container and set `ELECTRUMX_LOG_FILE` accordingly
+  - The ElectrumX log file is written to `/home/raven/electrum-data/electrumx.log` inside the ElectrumX container; mount the log file directly (e.g., `/home/raven/electrum-data/electrumx.log:/electrumx.log:ro`) and set `ELECTRUMX_LOG_FILE=/electrumx.log`
 
 ## Environment Variables
 
@@ -35,7 +35,7 @@ Published images: [https://hub.docker.com/r/dramirezrt/rvn-node-frontend](https:
 | `ZMQ_BLOCK_URL` | `tcp://127.0.0.1:28332` | ZMQ hashblock endpoint (from [rvn-core-server-docker](https://github.com/dramirezRT/rvn-core-server-docker)) |
 | `ZMQ_TX_URL` | `tcp://127.0.0.1:28333` | ZMQ hashtx endpoint (from [rvn-core-server-docker](https://github.com/dramirezRT/rvn-core-server-docker)) |
 | `RVN_LOG_FILE` | `/kingofthenorth/raven-dir/debug.log` | Path to ravend debug log inside the container (mount the host path) |
-| `ELECTRUMX_LOG_FILE` | _(empty)_ | Path to ElectrumX log inside the container — mount `/electrum-data` from [RVN-Electrumx-docker](https://github.com/dramirezRT/RVN-Electrumx-docker) and set to `/electrum-data/electrumx.log` |
+| `ELECTRUMX_LOG_FILE` | _(empty)_ | Path to ElectrumX log inside the container — mount the log file directly (e.g., `/home/raven/electrum-data/electrumx.log:/electrumx.log:ro`) and set to `/electrumx.log` |
 | `LOG_TAIL_LINES` | `80` | Lines to send on initial log subscribe |
 | `FALLBACK_REFRESH_MS` | `60000` | Fallback RPC refresh interval (ms) |
 
@@ -64,17 +64,17 @@ Host networking is required when ravend is running on the same host:
 ```bash
 docker run -d \
   -v ~/raven-node/kingofthenorth:/kingofthenorth:ro \
-  -v /home/raven/electrum-data:/electrum-data:ro \
+  -v /home/raven/electrum-data/electrumx.log:/electrumx.log:ro \
   -e RPC_PASS="$RPC_PASS" \
   -e ZMQ_BLOCK_URL=tcp://127.0.0.1:28332 \
   -e ZMQ_TX_URL=tcp://127.0.0.1:28333 \
-  -e ELECTRUMX_LOG_FILE=/electrum-data/electrumx.log \
+  -e ELECTRUMX_LOG_FILE=/electrumx.log \
   --network host \
   --name rvn-node-frontend \
   dramirezrt/rvn-node-frontend:latest
 ```
 
-> The `/electrum-data` mount path must match the host path used by [RVN-Electrumx-docker](https://github.com/dramirezRT/RVN-Electrumx-docker). The log file is written to `/electrum-data/electrumx.log` inside that container.
+> Mount the ElectrumX log file directly (e.g., `/home/raven/electrum-data/electrumx.log:/electrumx.log:ro`) and set `ELECTRUMX_LOG_FILE=/electrumx.log`.
 
 ## Building from Source
 

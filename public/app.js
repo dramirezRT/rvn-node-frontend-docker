@@ -173,6 +173,9 @@ function renderBlockCount(count) {
   if (count !== previousBlockCount) {
     el.classList.add('new-block');
     setTimeout(() => el.classList.remove('new-block'), 800);
+    if (window.triggerBlockNotification) {
+      window.triggerBlockNotification();
+    }
   }
 
   el.innerHTML = buildDigitHTML(formatted, prevFormatted) + '<span class="live-dot" id="liveDot"></span>';
@@ -423,3 +426,123 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && debugOpen) closeDebug();
   if (e.key === '`' && e.ctrlKey) { e.preventDefault(); debugOpen ? closeDebug() : openDebug(); }
 });
+
+// ===== BLOCK SOUND NOTIFICATIONS =====
+(function() {
+  const SOUNDS = [
+    'sounds/rvn-notify-raven1.mp3',
+    'sounds/rvn-notify-raven2.mp3',
+    'sounds/rvn-notify-corax-1a.mp3',
+    'sounds/rvn-notify-corax-1b.mp3',
+    'sounds/rvn-notify-corax-2.mp3',
+    'sounds/rvn-notify-corax-3.mp3',
+    'sounds/rvn-notify-corax-4.mp3',
+    'sounds/rvn-notify-corax-5.mp3',
+    'sounds/rvn-notify-corax-7.mp3',
+    'sounds/rvn-notify-corax-8.mp3',
+    'sounds/rvn-notify-corax-9.mp3',
+    'sounds/rvn-notify-corax-10.mp3',
+  ];
+
+  // Preload all audio objects
+  const audioPool = SOUNDS.map(src => {
+    const a = new Audio(src);
+    a.preload = 'auto';
+    return a;
+  });
+
+  // Audio unlock on first user interaction
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    console.log('Unlocking audio...');
+    audioPool.forEach(s => {
+      s.volume = 0.5;
+      s.play().then(() => {
+        console.log('Audio unlocked for:', s.src);
+        s.pause();
+        s.currentTime = 0;
+      }).catch(e => console.log('Audio unlock failed:', e));
+    });
+  }
+  document.addEventListener('click', unlockAudio, { once: true });
+  document.addEventListener('keydown', unlockAudio, { once: true });
+
+  let lastPlayedIdx = -1;
+
+  function playRandomSound() {
+    let idx;
+    do { idx = Math.floor(Math.random() * audioPool.length); }
+    while (idx === lastPlayedIdx && audioPool.length > 1);
+    lastPlayedIdx = idx;
+    const a = audioPool[idx];
+    a.currentTime = 0;
+    a.play().catch(() => {});
+  }
+
+  // ── White light animation ──
+  const overlay   = document.getElementById('blockOverlay');
+  const whiteLight = document.getElementById('whiteLight');
+
+  let animFrame = null;
+  let animStart = null;
+  const ANIM_DURATION = 5000; // ms — matches sound length
+
+  function animateWhiteLight(ts) {
+    if (!animStart) animStart = ts;
+    const progress = Math.min((ts - animStart) / ANIM_DURATION, 1);
+
+    // Envelope: fade in 0→0.2, hold 0.2→0.6, fade out 0.6→1.0
+    let envAlpha;
+    if (progress < 0.2)      envAlpha = progress / 0.2;
+    else if (progress < 0.6) envAlpha = 1.0;
+    else                      envAlpha = 1.0 - (progress - 0.6) / 0.4;
+    envAlpha = Math.max(0, Math.min(1, envAlpha));
+
+    if (whiteLight) {
+      whiteLight.style.opacity = envAlpha.toFixed(3);
+    }
+    overlay.style.opacity = envAlpha > 0 ? '1' : '0';
+
+    if (progress < 1) {
+      animFrame = requestAnimationFrame(animateWhiteLight);
+    } else {
+      // Clean up
+      if (whiteLight) whiteLight.style.opacity = '0';
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      animFrame = null;
+    }
+  }
+
+  function startAnimation() {
+    if (animFrame) {
+      cancelAnimationFrame(animFrame);
+      animFrame = null;
+    }
+    animStart = null;
+    overlay.style.pointerEvents = 'none';
+    animFrame = requestAnimationFrame(animateWhiteLight);
+  }
+
+  // ── Public trigger ──
+  window.triggerBlockNotification = function() {
+    console.log('triggerBlockNotification called');
+    const toggle = document.getElementById('soundToggle');
+    console.log('Toggle checked:', toggle ? toggle.checked : 'toggle not found');
+    if (toggle && !toggle.checked) return;
+    console.log('Playing sound, audioPool length:', audioPool.length);
+    playRandomSound();
+    startAnimation();
+  };
+
+  // Toggle icon update
+  const toggle = document.getElementById('soundToggle');
+  const icon   = document.getElementById('soundIcon');
+  if (toggle && icon) {
+    toggle.addEventListener('change', () => {
+      icon.textContent = toggle.checked ? '🔔' : '🔕';
+    });
+  }
+})();
