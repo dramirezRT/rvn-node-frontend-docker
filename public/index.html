@@ -572,7 +572,7 @@
     height: 100vh;
     background: var(--rvn-surface);
     border-left: 1px solid rgba(56, 77, 157, 0.12);
-    z-index: 50;
+    z-index: 1100;
     transform: translateX(100%);
     transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     display: flex;
@@ -644,7 +644,7 @@
     flex: 1; overflow-y: auto; padding: 16px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px; line-height: 1.7;
-    color: var(--rvn-text-dim);
+    color: #e0e0e0;
     white-space: pre-wrap; word-break: break-all;
     display: none;
   }
@@ -688,11 +688,119 @@
     .donate-address { font-size: 7px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
   }
 </style>
+
+<!-- ─── Block Sound Notification Styles ─── -->
+<style>
+.sound-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
+.sound-toggle input { opacity: 0; width: 0; height: 0; }
+.sound-slider {
+  position: absolute; inset: 0;
+  background: #333; border-radius: 20px; cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid rgba(247,147,26,0.25);
+}
+.sound-slider:before {
+  content: ""; position: absolute;
+  width: 14px; height: 14px; border-radius: 50%;
+  left: 3px; top: 3px;
+  background: #666; transition: transform 0.2s, background 0.2s;
+}
+.sound-toggle input:checked + .sound-slider {
+  background: rgba(232,160,0,0.25);
+  border-color: #f59e0b;
+  box-shadow: 0 0 12px #f59e0b;
+}
+.sound-toggle input:checked + .sound-slider:before {
+  transform: translateX(16px);
+  background: #e8a000;
+}
+
+/* Block notification overlay */
+#blockOverlay {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 1;
+}
+/* Canvas cone light — street lamp effect */
+#coneCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: blur(28px);
+}
+/* Dark tunnel vignette — on top of everything, nearly black at sides */
+#vignette {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(ellipse 38% 45% at 50% 42%,
+    transparent             0%,
+    rgba(0,0,0,0.45)       40%,
+    rgba(0,0,0,0.88)       70%,
+    rgba(0,0,0,0.97)      100%);
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+#block-canvas {
+  transition: filter 0.1s ease-out;
+}
+#floor-shadow {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 1.0;
+  transform-origin: top center;
+  transform: perspective(500px) rotateX(50deg);
+  filter: blur(2px);
+}
+</style>
 </head>
 <body>
 
+<!-- Hamburger menu -->
+<div id="hamburgerWrap" style="position:fixed;top:16px;right:16px;z-index:1001;">
+  <button id="hamburgerBtn" aria-label="Menu" style="width:40px;height:40px;border-radius:50%;background:rgba(20,20,20,0.85);backdrop-filter:blur(8px);border:1px solid rgba(247,147,26,0.25);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">
+    <svg id="hamburgerSvg" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Hamburger lines (visible when closed) -->
+      <line id="hb1" x1="2" y1="4" x2="14" y2="4" stroke="#ccc" stroke-width="1.8" stroke-linecap="round" style="transition:opacity 0.2s ease;"/>
+      <line id="hb2" x1="2" y1="8" x2="14" y2="8" stroke="#ccc" stroke-width="1.8" stroke-linecap="round" style="transition:opacity 0.2s ease;"/>
+      <line id="hb3" x1="2" y1="12" x2="14" y2="12" stroke="#ccc" stroke-width="1.8" stroke-linecap="round" style="transition:opacity 0.2s ease;"/>
+      <!-- X lines (hidden when closed, revealed when open) -->
+      <line id="hbX1" x1="3" y1="3" x2="13" y2="13" stroke="#ccc" stroke-width="1.8" stroke-linecap="round" style="opacity:0;transition:opacity 0.2s ease;"/>
+      <line id="hbX2" x1="13" y1="3" x2="3" y2="13" stroke="#ccc" stroke-width="1.8" stroke-linecap="round" style="opacity:0;transition:opacity 0.2s ease;"/>
+    </svg>
+  </button>
+  <div id="hamburgerMenu" style="position:absolute;top:48px;right:0;min-width:180px;background:rgba(20,20,20,0.92);backdrop-filter:blur(12px);border-radius:14px;border:1px solid rgba(247,147,26,0.25);padding:12px 16px;display:flex;flex-direction:column;gap:12px;opacity:0;transform:translateY(-8px);pointer-events:none;transition:opacity 0.2s ease,transform 0.2s ease;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <span style="font-size:11px;color:#aaa;letter-spacing:0.04em;white-space:nowrap;flex:1;">Enable sounds</span>
+      <label class="sound-toggle" style="flex-shrink:0;">
+        <input type="checkbox" id="soundToggle" checked>
+        <span class="sound-slider"></span>
+      </label>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <span style="font-size:11px;color:#aaa;letter-spacing:0.04em;white-space:nowrap;flex:1;">Enable light animation</span>
+      <label class="sound-toggle" style="flex-shrink:0;">
+        <input type="checkbox" id="lightToggle" checked>
+        <span class="sound-slider"></span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Block notification overlay (white light effect) -->
+<div id="blockOverlay" aria-hidden="true">
+  <canvas id="coneCanvas"></canvas>
+</div>
+
 <div class="block-label">Block Height</div>
 <canvas id="block-canvas"></canvas>
+<canvas id="floor-shadow"></canvas>
+<!-- Vignette sits above numbers, below UI panels -->
+<div id="vignette" aria-hidden="true"></div>
 
 <div class="main-wrapper" id="main">
   <div class="time-since" id="timeSince"></div>
@@ -815,14 +923,14 @@
   const SYMBOLS = '#@%&*+~?$!=<>^:;.'.split('');
   // Full Ravencoin palette
   const COLORS = [
-    { r: 255, g: 255, b: 255 },  // white (dominant)
-    { r: 255, g: 255, b: 255 },  // white
-    { r: 255, g: 255, b: 255 },  // white
-    { r: 247, g: 147, b: 26 },   // orange
-    { r: 249, g: 168, b: 37 },   // amber
-    { r: 232, g: 70, b: 30 },    // red-orange
-    { r: 140, g: 160, b: 230 },  // light periwinkle blue (readable on dark)
-    { r: 120, g: 140, b: 220 },  // soft blue
+    { r: 170, g: 170, b: 170 },  // dimmed white (dominant)
+    { r: 170, g: 170, b: 170 },  // dimmed white
+    { r: 160, g: 160, b: 160 },  // dimmed white
+    { r: 200, g: 120, b: 20 },   // dimmed orange
+    { r: 200, g: 135, b: 30 },   // dimmed amber
+    { r: 185, g: 55, b: 24 },    // dimmed red-orange
+    { r: 110, g: 125, b: 185 },  // dimmed periwinkle blue
+    { r: 95, g: 112, b: 175 },   // dimmed soft blue
   ];
 
   let particles = [];
@@ -1196,7 +1304,6 @@
 
   const demoMode = new URLSearchParams(window.location.search).get('demo') === 'true';
   let mockHeight = 4267123;
-  let realDataReceived = false;
 
   function initMock() {
     currentHeight = mockHeight;
@@ -1271,21 +1378,20 @@
     socket.on('connect', () => { socketConnected = true; setConnected(true); });
     socket.on('disconnect', () => { setConnected(false); });
 
-    let lastRealHeight = null;
-    let staleCount = 0;
+
 
     socket.on('node_status', (data) => {
       lastDataTime = Date.now();
       setConnected(true);
 
       if (data.blockHeight) {
-        realDataReceived = true;
-
         // Update block height with particle animation when it changes
         if (data.blockHeight !== currentHeight) {
           currentHeight = data.blockHeight;
           mockHeight = data.blockHeight;
           renderText(formatNumber(data.blockHeight), true);
+          // Trigger sound + light notification
+          triggerBlockNotification();
         }
       }
 
@@ -1529,6 +1635,273 @@
   }
 
 })();
+
+// ===== BLOCK SOUND + LIGHT NOTIFICATIONS =====
+const SOUNDS = [
+  'sounds/rvn-notify-raven1.mp3',
+  'sounds/rvn-notify-raven2.mp3',
+  'sounds/rvn-notify-corax-1a.mp3',
+  'sounds/rvn-notify-corax-1b.mp3',
+  'sounds/rvn-notify-corax-2.mp3',
+  'sounds/rvn-notify-corax-3.mp3',
+  'sounds/rvn-notify-corax-4.mp3',
+  'sounds/rvn-notify-corax-5.mp3',
+  'sounds/rvn-notify-corax-7.mp3',
+  'sounds/rvn-notify-corax-8.mp3',
+  'sounds/rvn-notify-corax-9.mp3',
+  'sounds/rvn-notify-corax-10.mp3',
+];
+
+const audioPool = SOUNDS.map(src => {
+  const a = new Audio(src);
+  a.preload = 'auto';
+  return a;
+});
+
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  audioPool.forEach(s => {
+    s.volume = 0;
+    s.play().then(() => { s.pause(); s.currentTime = 0; s.volume = 1; }).catch(() => {});
+  });
+}
+document.addEventListener('click', unlockAudio, { once: true });
+document.addEventListener('keydown', unlockAudio, { once: true });
+
+let lastPlayedIdx = -1;
+function playRandomSound() {
+  let idx;
+  do { idx = Math.floor(Math.random() * audioPool.length); }
+  while (idx === lastPlayedIdx && audioPool.length > 1);
+  lastPlayedIdx = idx;
+  const a = audioPool[idx];
+  a.currentTime = 0;
+  a.volume = 1;
+  a.play().catch(() => {});
+}
+
+// Light cone animation
+const _coneCanvas = document.getElementById('coneCanvas');
+const _coneCtx    = _coneCanvas ? _coneCanvas.getContext('2d') : null;
+const _blockCanvas = document.getElementById('block-canvas');
+let _fadeEnd = 0.30; // cone fade endpoint (baked in at 30%)
+const _floorCanvas = document.getElementById('floor-shadow');
+const _floorCtx    = _floorCanvas ? _floorCanvas.getContext('2d') : null;
+let _glowMult = 0.4;
+let _lightEnabled = true;
+
+let _floorAnimAlpha = 0; // set by animation loop, used by shadow draw
+
+function drawFloorShadow() {
+  if (!_floorCtx || !_blockCanvas) return;
+
+  const dpr  = window.devicePixelRatio || 1;
+  const srcW = _blockCanvas.width;
+  const srcH = _blockCanvas.height;
+  const cssW = Math.round(srcW / dpr);
+  const cssH = Math.round(srcH / dpr);
+  const shH  = Math.round(srcH * 0.65);          // shadow canvas = 65% the height of digits (~50% visible)
+  const cssShH = Math.round(cssH * 0.45);
+
+  // Size the canvas
+  if (_floorCanvas.width !== srcW || _floorCanvas.height !== shH) {
+    _floorCanvas.width  = srcW;
+    _floorCanvas.height = shH;
+  }
+  _floorCanvas.style.width  = cssW + 'px';
+  _floorCanvas.style.height = cssShH + 'px';
+
+  // Position: snapped to bottom edge of block-canvas in screen coords
+  const rect = _blockCanvas.getBoundingClientRect();
+  _floorCanvas.style.left = rect.left + 'px';
+  _floorCanvas.style.top  = (rect.bottom - 15) + 'px';   // floor starts right at digit baseline
+
+  _floorCtx.clearRect(0, 0, srcW, shH);
+
+  // Flip vertically: draw block canvas upside-down (reflected on the floor)
+  _floorCtx.save();
+  _floorCtx.translate(0, shH);
+  _floorCtx.scale(1, -1);
+  // Draw only the bottom portion of the digits (the feet, not the whole number)
+  _floorCtx.drawImage(_blockCanvas, 0, srcH - shH, srcW, shH, 0, 0, srcW, shH);
+  _floorCtx.restore();
+
+  // Tint the reflected image: amber overlay, brightens when light fires
+  // Idle: slightly transparent amber so it's nicely visible. During animation: bright amber glow.
+  const idleTint  = 0.30;
+  const animBoost = _floorAnimAlpha * 0.45; // goes from 0 → 0.45 extra during animation
+  const tintAlpha = Math.min(0.92, idleTint + animBoost);
+  const tintR = Math.round(80 + _floorAnimAlpha * 175);   // 80 → 255 red
+  const tintG = Math.round(40 + _floorAnimAlpha * 160);   // 40 → 200 green
+  const tintB = Math.round(0);
+  _floorCtx.globalCompositeOperation = 'source-atop';
+  _floorCtx.fillStyle = `rgba(${tintR}, ${tintG}, ${tintB}, ${tintAlpha.toFixed(3)})`;
+  _floorCtx.fillRect(0, 0, srcW, shH);
+  _floorCtx.globalCompositeOperation = 'source-over';
+
+  // Fade out: top (digit feet) = visible, bottom (far from digits) = transparent
+  const fade = _floorCtx.createLinearGradient(0, 0, 0, shH);
+  fade.addColorStop(0,    'rgba(0,0,0,0)');   // near: keep
+  fade.addColorStop(0.80, 'rgba(0,0,0,0)');   // still solid
+  fade.addColorStop(1,    'rgba(0,0,0,1)');   // far: erase
+  _floorCtx.globalCompositeOperation = 'destination-out';
+  _floorCtx.fillStyle = fade;
+  _floorCtx.fillRect(0, 0, srcW, shH);
+  _floorCtx.globalCompositeOperation = 'source-over';
+}
+
+// Continuously re-draw floor shadow to stay in sync with animated block canvas
+function _shadowLoop() {
+  drawFloorShadow();
+  requestAnimationFrame(_shadowLoop);
+}
+requestAnimationFrame(_shadowLoop);
+
+
+const ANIM_DURATION = 5000;
+let _animFrame = null;
+let _animStart = null;
+
+function drawLightCone(alpha) {
+  if (!_coneCanvas || !_coneCtx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W   = window.innerWidth;
+  const H   = window.innerHeight;
+
+  // Resize canvas if needed
+  if (_coneCanvas.width !== Math.round(W * dpr)) {
+    _coneCanvas.width  = Math.round(W * dpr);
+    _coneCanvas.height = Math.round(H * dpr);
+    _coneCanvas.style.width  = W + 'px';
+    _coneCanvas.style.height = H + 'px';
+  }
+
+  const ctx = _coneCtx;
+  ctx.clearRect(0, 0, _coneCanvas.width, _coneCanvas.height);
+  ctx.save();
+  ctx.scale(dpr, dpr);
+
+  // Light source: just below Block Height label (~15% from top)
+  const srcX = W * 0.50;
+  const srcY = H * 0.19;
+
+  // Cone fans to 60% half-width, ending at 80% viewport height
+  const halfW = W * 0.60;
+  const btmY  = H * 0.80;
+
+  // === Draw main cone (triangle) with vertical gradient ===
+  const fe = _fadeEnd;
+  const grad = ctx.createLinearGradient(srcX, srcY, srcX, btmY);
+  grad.addColorStop(0.00, `rgba(255,230,160,${(alpha * 0.95).toFixed(3)})`);
+  grad.addColorStop(Math.min(fe * 0.35, 0.99), `rgba(255,210,110,${(alpha * 0.82).toFixed(3)})`);
+  grad.addColorStop(Math.min(fe * 0.75, 0.99), `rgba(255,155,50,${(alpha * 0.55).toFixed(3)})`);
+  grad.addColorStop(Math.min(fe,        0.99), `rgba(180,80,8,${(alpha * 0.25).toFixed(3)})`);
+  grad.addColorStop(Math.min(fe * 1.55, 1.00), `rgba(50,15,0,${(alpha * 0.07).toFixed(3)})`);
+  grad.addColorStop(1.00, 'rgba(0,0,0,0)');
+
+  const tipHalfW = W * 0.05; // match bulb radius so cone top = bulb width
+  ctx.beginPath();
+  ctx.moveTo(srcX - tipHalfW, srcY);
+  ctx.lineTo(srcX - halfW, btmY);
+  ctx.lineTo(srcX + halfW, btmY);
+  ctx.lineTo(srcX + tipHalfW, srcY);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // === Draw bright bulb at light source ===
+  const bulb = ctx.createRadialGradient(srcX, srcY, 0, srcX, srcY, W * 0.05);
+  bulb.addColorStop(0.0, `rgba(255,255,240,${alpha.toFixed(3)})`);
+  bulb.addColorStop(0.3, `rgba(255,230,160,${(alpha * 0.8).toFixed(3)})`);
+  bulb.addColorStop(0.7, `rgba(255,180,80,${(alpha * 0.3).toFixed(3)})`);
+  bulb.addColorStop(1.0, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.arc(srcX, srcY, W * 0.05, 0, Math.PI * 2);
+  ctx.fillStyle = bulb;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function _animateLight(ts) {
+  if (!_animStart) {
+    _animStart = ts;
+  }
+  const p = Math.min((ts - _animStart) / ANIM_DURATION, 1);
+  let alpha;
+  if (p < 0.2)      alpha = p / 0.2;
+  else if (p < 0.6) alpha = 1.0;
+  else              alpha = 1.0 - (p - 0.6) / 0.4;
+  alpha = Math.max(0, Math.min(1, alpha));
+  drawLightCone(alpha);
+  // Numbers glow as light fires — warm amber glow effect
+  if (_blockCanvas) _blockCanvas.style.filter = alpha > 0.01 ?
+    `drop-shadow(0 0 ${Math.round(alpha * _glowMult * 8)}px rgba(255,255,200,${(alpha * _glowMult).toFixed(2)})) drop-shadow(0 0 ${Math.round(alpha * _glowMult * 24)}px rgba(255,200,80,${(alpha * _glowMult * 0.9).toFixed(2)})) drop-shadow(0 0 ${Math.round(alpha * _glowMult * 48)}px rgba(255,150,30,${(alpha * _glowMult * 0.6).toFixed(2)}))` : '';
+  // Floor brightens with animation
+  _floorAnimAlpha = alpha;
+  if (p < 1) {
+    _animFrame = requestAnimationFrame(_animateLight);
+  } else {
+    if (_coneCtx) _coneCtx.clearRect(0, 0, _coneCanvas.width, _coneCanvas.height);
+    if (_blockCanvas) _blockCanvas.style.filter = '';
+    _floorAnimAlpha = 0;
+    _animFrame = null;
+  }
+}
+
+function triggerBlockNotification() {
+  const toggle = document.getElementById('soundToggle');
+  if (toggle && toggle.checked) playRandomSound();  // sound only if enabled
+  if (!_lightEnabled) return;
+  if (_animFrame) { cancelAnimationFrame(_animFrame); _animFrame = null; }
+  _animStart = null;
+  _animFrame = requestAnimationFrame(_animateLight);
+}
+
+// Hamburger menu
+(function() {
+  const btn = document.getElementById('hamburgerBtn');
+  const menu = document.getElementById('hamburgerMenu');
+  const hb1 = document.getElementById('hb1');
+  const hb2 = document.getElementById('hb2');
+  const hb3 = document.getElementById('hb3');
+  let open = false;
+
+  const hbX1 = document.getElementById('hbX1');
+  const hbX2 = document.getElementById('hbX2');
+
+  function setOpen(val) {
+    open = val;
+    if (open) {
+      menu.style.opacity = '1';
+      menu.style.transform = 'translateY(0)';
+      menu.style.pointerEvents = 'all';
+      hb1.style.opacity = '0';
+      hb2.style.opacity = '0';
+      hb3.style.opacity = '0';
+      hbX1.style.opacity = '1';
+      hbX2.style.opacity = '1';
+    } else {
+      menu.style.opacity = '0';
+      menu.style.transform = 'translateY(-8px)';
+      menu.style.pointerEvents = 'none';
+      hb1.style.opacity = '1';
+      hb2.style.opacity = '1';
+      hb3.style.opacity = '1';
+      hbX1.style.opacity = '0';
+      hbX2.style.opacity = '0';
+    }
+  }
+
+  btn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!open); });
+  document.addEventListener('click', (e) => { if (open && !document.getElementById('hamburgerWrap').contains(e.target)) setOpen(false); });
+
+  const lightToggle = document.getElementById('lightToggle');
+  lightToggle.addEventListener('change', () => { _lightEnabled = lightToggle.checked; });
+})();
 </script>
+
 </body>
 </html>
